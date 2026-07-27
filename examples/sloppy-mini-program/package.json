@@ -1,0 +1,13 @@
+{
+  "name": "sloppy-mini-program",
+  "version": "0.0.1",
+  "description": "一个豆包 vibe-code 出来的小程序，从没被任何人审过",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "author": "a-non-dev-founder",
+  "private": true
+}

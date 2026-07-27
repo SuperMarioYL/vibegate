@@ -1,0 +1,12 @@
+{
+  "name": "demo-app",
+  "version": "0.0.1",
+  "description": "a tiny vibe-coded app used by the README demo tape",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "private": true
+}

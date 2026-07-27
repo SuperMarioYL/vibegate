@@ -1,0 +1,51 @@
+name: release
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm pack
+      - name: Stage dist artifacts + checksums
+        run: |
+          mkdir -p dist
+          mv *.tgz dist/
+          (cd dist && sha256sum *.tgz > checksums.txt)
+          echo "## dist contents" && ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+          if-no-files-found: error
+
+  # Opt-in npm publish — a fresh repo has no NPM_TOKEN and no Trusted Publisher,
+  # so this job stays skipped until the owner sets the NPM_PUBLISH repo variable.
+  publish-npm:
+    needs: build
+    runs-on: ubuntu-latest
+    if: vars.NPM_PUBLISH == 'true'
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
+      - run: npm run build
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

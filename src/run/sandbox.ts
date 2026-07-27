@@ -1,0 +1,289 @@
+/**
+ * Clean-env sandbox run (mvp_plan §1 check 1 / m2). Copies the project into a
+ * temp dir (excluding node_modules so the install is genuinely fresh), installs
+ * deps, runs the start script in a child process with a 30s timeout, and
+ * captures the stderr tail on crash. No Docker — non-devs don't have it.
+ */
+import { existsSync } from 'node:fs';
+import { readFile, cp, rm, mkdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { randomUUID } from 'node:crypto';
+import { resolve, join } from 'node:path';
+import { execa, type Result } from 'execa';
+import type { Check, Finding, Runtime, VibeGateConfig } from '../config.js';
+import { statusFor } from '../config.js';
+
+const STDERR_TAIL_LINES = 12;
+const GRACE_MS = 2_000;
+
+interface RunResult {
+  ok: boolean;
+  timedOut: boolean;
+  installFailed: boolean;
+  noStartScript: boolean;
+  skipped: boolean;
+  exitCode: number | null;
+  stderrTail: string;
+}
+
+function tail(s: string | undefined, n: number): string {
+  if (!s) return '';
+  const lines = s.split(/\r?\n/).filter((l) => l.length > 0);
+  return lines.slice(-n).join('\n').slice(0, 2_000);
+}
+
+/** Coerce execa's broad stderr union into a plain string. */
+function stderrOf(result: Result): string {
+  const s = (result as { stderr?: unknown }).stderr;
+  if (typeof s === 'string') return s;
+  if (Array.isArray(s)) return s.map((x) => String(x)).join('\n');
+  return '';
+}
+
+function exitCodeOf(result: Result): number | null {
+  const c = (result as { exitCode?: number | null }).exitCode;
+  return typeof c === 'number' ? c : null;
+}
+
+async function readPackageJson(dir: string): Promise<Record<string, unknown> | null> {
+  const p = resolve(dir, 'package.json');
+  if (!existsSync(p)) return null;
+  try {
+    return JSON.parse(await readFile(p, 'utf8')) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function isEmptyDeps(pkg: Record<string, unknown>): boolean {
+  const deps = (pkg['dependencies'] as Record<string, unknown> | undefined) ?? {};
+  const dev = (pkg['devDependencies'] as Record<string, unknown> | undefined) ?? {};
+  return Object.keys(deps).length === 0 && Object.keys(dev).length === 0;
+}
+
+const COPY_FILTER = new Set(['node_modules', 'dist', 'build', '.git', '.next', 'coverage', '.turbo']);
+
+async function copyProject(src: string, dest: string): Promise<void> {
+  await mkdir(dest, { recursive: true });
+  await cp(src, dest, {
+    recursive: true,
+    force: true,
+    errorOnExist: false,
+    filter: (s) => {
+      // keep the root; skip well-known heavy/generated subtrees
+      if (s === src) return true;
+      const base = s.split(/[\\/]/).pop() ?? '';
+      return !COPY_FILTER.has(base) && !/\bvibegate-report\.json$/.test(s);
+    },
+  });
+}
+
+function startCommand(runtime: Runtime, startScript: string | undefined): { cmd: string; args: string[] } | null {
+  if (!startScript) return null;
+  if (runtime === 'bun') return { cmd: 'bun', args: ['run', 'start'] };
+  // node runtime: prefer running the start script's node entry directly so a
+  // timeout kill reaches the actual process, not a wrapper. Fall back to npm.
+  const direct = startScript.match(/^\s*node\s+(.+)$/);
+  if (direct) {
+    const rest = direct[1].trim().split(/\s+/);
+    return { cmd: 'node', args: rest };
+  }
+  return { cmd: 'npm', args: ['start'] };
+}
+
+async function runChild(
+  cmd: string,
+  args: string[],
+  cwd: string,
+  timeoutMs: number,
+): Promise<{ result: Result; timedOut: boolean }> {
+  let timedOut = false;
+  const subprocess = execa(cmd, args, {
+    cwd,
+    reject: false,
+    detached: true,
+    windowsHide: true,
+    env: { ...process.env, CI: '1', FORCE_COLOR: '0', NO_COLOR: '1' },
+  });
+  const pid = subprocess.pid ?? null;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    // kill the whole detached process group (npm + its node child)
+    if (pid !== null) {
+      try {
+        process.kill(-pid, 'SIGTERM');
+      } catch {
+        try {
+          subprocess.kill('SIGTERM');
+        } catch {
+          /* already dead */
+        }
+      }
+    }
+    // escalate to SIGKILL after a grace period
+    setTimeout(() => {
+      if (pid !== null) {
+        try {
+          process.kill(-pid, 9);
+        } catch {
+          /* dead */
+        }
+      }
+    }, GRACE_MS).unref();
+  }, timeoutMs);
+
+  try {
+    const result = await subprocess;
+    clearTimeout(timer);
+    return { result, timedOut };
+  } catch (e) {
+    clearTimeout(timer);
+    return { result: e as Result, timedOut };
+  }
+}
+
+async function runInSandbox(
+  projectPath: string,
+  runtime: Runtime,
+  cfg: VibeGateConfig,
+): Promise<RunResult> {
+  const sandboxDir = join(tmpdir(), `vibegate-${randomUUID()}`);
+  const emptyResult = (over: Partial<RunResult>): RunResult => ({
+    ok: false,
+    timedOut: false,
+    installFailed: false,
+    noStartScript: false,
+    skipped: false,
+    exitCode: null,
+    stderrTail: '',
+    ...over,
+  });
+
+  try {
+    await copyProject(projectPath, sandboxDir);
+  } catch (e) {
+    return emptyResult({ stderrTail: `sandbox copy failed: ${String((e as Error).message)}` });
+  }
+
+  // mini-program: no standard runnable start script — skip the run, warn.
+  if (runtime === 'mini-program') {
+    await cleanup(sandboxDir);
+    return emptyResult({ skipped: true });
+  }
+
+  const pkg = await readPackageJson(sandboxDir);
+  const scripts = (pkg?.['scripts'] as Record<string, unknown> | undefined) ?? {};
+  const startScript = typeof scripts['start'] === 'string' ? scripts['start'] : undefined;
+
+  const cmd = startCommand(runtime, startScript);
+  if (!cmd) {
+    await cleanup(sandboxDir);
+    return emptyResult({ noStartScript: true });
+  }
+
+  // fresh install only when there are deps to install (keeps offline fixtures fast)
+  if (pkg && !isEmptyDeps(pkg)) {
+    const install = await runChild(
+      'npm',
+      ['install', '--no-audit', '--no-fund', '--prefer-offline'],
+      sandboxDir,
+      cfg.timeoutMs,
+    );
+    if (install.timedOut) {
+      await cleanup(sandboxDir);
+      return emptyResult({ timedOut: true, stderrTail: tail(stderrOf(install.result), STDERR_TAIL_LINES) });
+    }
+    if (install.result.exitCode !== 0) {
+      await cleanup(sandboxDir);
+      return emptyResult({ installFailed: true, stderrTail: tail(stderrOf(install.result), STDERR_TAIL_LINES) });
+    }
+  }
+
+  const run = await runChild(cmd.cmd, cmd.args, sandboxDir, cfg.timeoutMs);
+  const exitCode = exitCodeOf(run.result);
+  const ok = !run.timedOut && exitCode === 0;
+  await cleanup(sandboxDir);
+  return {
+    ok,
+    timedOut: run.timedOut,
+    installFailed: false,
+    noStartScript: false,
+    skipped: false,
+    exitCode,
+    stderrTail: tail(stderrOf(run.result), STDERR_TAIL_LINES),
+  };
+}
+
+async function cleanup(dir: string): Promise<void> {
+  await rm(dir, { recursive: true, force: true }).catch(() => {});
+}
+
+/** Run the clean-env sandbox; returns the clean-run Check. */
+export async function runSandbox(projectPath: string, cfg: VibeGateConfig): Promise<Check> {
+  const root = resolve(projectPath);
+  const runtime = detectRuntimeForRun(root);
+  const res = await runInSandbox(root, runtime, cfg);
+  const findings: Finding[] = [];
+
+  if (res.skipped) {
+    findings.push({
+      severity: 'warn',
+      msg_zh: '小程序运行时，无标准启动脚本，干净环境实跑已跳过（请在微信开发者工具中运行）',
+      msg_en: 'mini-program runtime has no standard start script — clean-env run skipped (open in WeChat DevTools)',
+    });
+  } else if (res.noStartScript) {
+    findings.push({
+      severity: 'warn',
+      msg_zh: 'package.json 未定义 start 脚本，无法在干净环境启动',
+      msg_en: 'package.json defines no start script — cannot run in a clean env',
+    });
+  } else if (res.installFailed) {
+    findings.push({
+      severity: 'fail',
+      msg_zh: '干净环境依赖安装失败',
+      msg_en: 'dependency install failed in the clean env',
+      evidence: res.stderrTail || undefined,
+    });
+  } else if (res.timedOut) {
+    findings.push({
+      severity: 'fail',
+      msg_zh: `干净环境启动超时（>${Math.round(cfg.timeoutMs / 1000)}s，疑似卡在交互或网络等待）`,
+      msg_en: `start timed out in the clean env (>${Math.round(cfg.timeoutMs / 1000)}s — likely waiting on interaction/network)`,
+      evidence: res.stderrTail || undefined,
+    });
+  } else if (!res.ok) {
+    findings.push({
+      severity: 'fail',
+      msg_zh: '干净环境启动崩溃',
+      msg_en: 'start crashed in the clean env',
+      evidence: res.stderrTail ? `exit ${res.exitCode ?? '?'}\n${res.stderrTail}` : `exit ${res.exitCode ?? '?'}`,
+    });
+  } else {
+    findings.push({
+      severity: 'info',
+      msg_zh: `干净环境启动成功（退出码 0）`,
+      msg_en: `start succeeded in the clean env (exit 0)`,
+    });
+  }
+
+  return {
+    id: 'clean-run',
+    status: statusFor(findings),
+    findings,
+  };
+}
+
+function detectRuntimeForRun(projectPath: string): Runtime {
+  if (
+    existsSync(resolve(projectPath, 'project.config.json')) ||
+    existsSync(resolve(projectPath, 'app.json'))
+  ) {
+    return 'mini-program';
+  }
+  if (existsSync(resolve(projectPath, 'bun.lockb')) || existsSync(resolve(projectPath, 'bun.lock'))) {
+    return 'bun';
+  }
+  return 'node';
+}
+
+export { detectRuntimeForRun, cleanup as cleanupSandbox };
