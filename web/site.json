@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "name": "vibegate",
+  "github": "https://github.com/SuperMarioYL/vibegate",
+  "host": "vibegate.lei6393.com",
+  "lang": { "primary": "zh", "toggle": true },
+  "accent": ["#10A37F"],
+  "hero": {
+    "eyebrow": { "zh": "本地 · 无账号 · 一条命令", "en": "Local · no account · one command" },
+    "headline": {
+      "zh": "vibe-code 出来的应用能不能用\n一条命令给你红黄绿判定",
+      "en": "Can your vibe-coded app actually run?\nOne command, a traffic-light verdict"
+    },
+    "sub": {
+      "zh": "三个纯模块替你跑完三道专业门槛——干净环境能不能跑、算不算生产可用、许可证干不干净；汇总成一个双语判定，不用装 Docker、不用懂技术。",
+      "en": "Three pure modules clear three expertise gauntlets for you — does it run in a clean env, is it production-ready, is the license clean — and roll them into one bilingual verdict. No Docker, no expertise needed."
+    },
+    "command": "npx vibegate ./my-app",
+    "cta": { "zh": "开始使用", "en": "Get started" },
+    "ctaGithub": { "zh": "在 GitHub 查看", "en": "View on GitHub" }
+  },
+  "advantages": [
+    {
+      "title": { "zh": "干净环境，真跑一次", "en": "A real run, in a clean env" },
+      "body": {
+        "zh": "把项目复制进临时沙箱、全新装一遍依赖、30 秒超时拉起子进程，真正抓到崩溃还是能跑起来——不是看代码猜，是实跑一次。",
+        "en": "Copies your project into a temp sandbox, installs dependencies fresh, then launches the app under a 30-second timeout to actually catch a crash or a clean start — not reading code and guessing, a real run."
+      },
+      "chips": ["› 临时沙箱 · 全新装依赖", "› 30s 超时抓崩溃"]
+    },
+    {
+      "title": { "zh": "许可证 / 版权，红黄绿一句话", "en": "License & copyright, one traffic light" },
+      "body": {
+        "zh": "枚举依赖的许可证并自动分级：GPL / AGPL 直接判红、LGPL / MPL 判黄，再嗅探代码里的版权头有没有被抹掉。不用你会读 SPDX 表。",
+        "en": "Enumerates dependency licenses and auto-grades them — GPL / AGPL flag red, LGPL / MPL flag yellow — and sniffs whether copyright headers were stripped from the code. No need to read an SPDX table."
+      },
+      "chips": ["› copyleft 自动分级", "› 版权头嗅探"]
+    },
+    {
+      "title": { "zh": "生产可用，先静态扫一遍", "en": "Production-ready, a static sweep first" },
+      "body": {
+        "zh": "跑之前先扫就绪信号：缺 README、没锁文件、把 node_modules 提交进库、没有 .gitignore、硬编码密钥、满屏 console.log——这些一看就是还没法上线的痕迹。",
+        "en": "Before running, sweep for readiness signals: missing README, no lockfile, node_modules committed, no .gitignore, hardcoded secrets, console.log everywhere — the tell-tale signs it isn't shippable yet."
+      },
+      "chips": ["› 就绪启发式扫描", "› 密钥 / 调试残留"]
+    },
+    {
+      "title": { "zh": "非开发者读得懂 · 不用账号", "en": "A non-dev can read it · no account" },
+      "body": {
+        "zh": "三个模块汇成一个双语红黄绿判定，既是终端里一眼看懂的结论，也是机器可读的 JSON 报告。本地跑完，无云、无账号、无守护进程。",
+        "en": "The three modules roll into one bilingual traffic-light verdict — both a one-glance terminal conclusion and a machine-readable JSON report. Runs locally: no cloud, no account, no daemon."
+      },
+      "chips": ["› 双语红黄绿判定", "› 本地 · 无云"]
+    }
+  ],
+  "scene": {
+    "kind": "hub-nodes",
+    "nodes": ["Clean run", "Readiness", "License"]
+  },
+  "cta": {
+    "headline": {
+      "zh": "三道专业门槛，压成一条本地命令",
+      "en": "Three expertise gauntlets, one local command"
+    },
+    "sub": {
+      "zh": "开源、MIT。本地判定这一核心动作，永不设墙；托管徽章是可选的后续。",
+      "en": "Open source, MIT. The core act of a local verdict is never gated; a hosted badge is an optional later step."
+    },
+    "button": { "zh": "在 GitHub 查看", "en": "View on GitHub" }
+  },
+  "footer": {
+    "tag": { "zh": "给 vibe-code 出来的应用放行的本地闸门", "en": "The local gate that ships vibe-coded apps" }
+  }
+}
