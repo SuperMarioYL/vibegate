@@ -23,10 +23,10 @@
     {
       "title": { "zh": "干净环境，真跑一次", "en": "A real run, in a clean env" },
       "body": {
-        "zh": "把项目复制进临时沙箱、全新装一遍依赖、30 秒超时拉起子进程，真正抓到崩溃还是能跑起来——不是看代码猜，是实跑一次。",
-        "en": "Copies your project into a temp sandbox, installs dependencies fresh, then launches the app under a 30-second timeout to actually catch a crash or a clean start — not reading code and guessing, a real run."
+        "zh": "把项目复制进临时沙箱、全新装一遍依赖、30 秒超时跑一次启动，真正抓到崩溃还是能跑起来。诊断诚实到层级：装依赖卡住（多半是网络慢）和应用自己启动超时，分开报；小游戏项目也被认出来，不会被误判成“没启动脚本”白扣一盏灯。不是看代码猜，是实跑一次。",
+        "en": "Copies your project into a temp sandbox, installs dependencies fresh, then launches the app under a 30-second timeout to actually catch a crash or a clean start. The diagnosis is honest by layer: a dependency install that hung (usually a slow network) is reported separately from an app whose own start timed out — and mini-game projects are recognized for what they are, not mis-blamed as “no start script” and docked a light they don’t deserve. Not reading code and guessing — a real run."
       },
-      "chips": ["› 临时沙箱 · 全新装依赖", "› 30s 超时抓崩溃"]
+      "chips": ["› 临时沙箱 · 全新装依赖", "› 装依赖 / 启动超时·分开报", "› 小游戏不再被误判"]
     },
     {
       "title": { "zh": "许可证 / 版权，红黄绿一句话", "en": "License & copyright, one traffic light" },
@@ -70,5 +70,9 @@
   },
   "footer": {
     "tag": { "zh": "给 vibe-code 出来的应用放行的本地闸门", "en": "The local gate that ships vibe-coded apps" }
+  },
+  "meta": {
+    "content_version": "v0.2.0",
+    "generated_at": "2026-08-05"
   }
 }
