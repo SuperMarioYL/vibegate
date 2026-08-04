@@ -19,6 +19,7 @@ const GRACE_MS = 2_000;
 interface RunResult {
   ok: boolean;
   timedOut: boolean;
+  installTimedOut: boolean;
   installFailed: boolean;
   noStartScript: boolean;
   skipped: boolean;
@@ -151,6 +152,7 @@ async function runInSandbox(
   const emptyResult = (over: Partial<RunResult>): RunResult => ({
     ok: false,
     timedOut: false,
+    installTimedOut: false,
     installFailed: false,
     noStartScript: false,
     skipped: false,
@@ -191,7 +193,16 @@ async function runInSandbox(
     );
     if (install.timedOut) {
       await cleanup(sandboxDir);
-      return emptyResult({ timedOut: true, stderrTail: tail(stderrOf(install.result), STDERR_TAIL_LINES) });
+      // distinguish an install timeout from a run timeout so the user debugs
+      // deps/registry, not the start script. installFailed marks this as an
+      // install-layer failure; installTimedOut carries the timeout signal that
+      // runSandbox turns into a dedicated "dependency install timed out" finding
+      // (ahead of the generic "start timed out" branch).
+      return emptyResult({
+        installTimedOut: true,
+        installFailed: true,
+        stderrTail: tail(stderrOf(install.result), STDERR_TAIL_LINES),
+      });
     }
     if (install.result.exitCode !== 0) {
       await cleanup(sandboxDir);
@@ -206,6 +217,7 @@ async function runInSandbox(
   return {
     ok,
     timedOut: run.timedOut,
+    installTimedOut: false,
     installFailed: false,
     noStartScript: false,
     skipped: false,
@@ -236,6 +248,13 @@ export async function runSandbox(projectPath: string, cfg: VibeGateConfig): Prom
       severity: 'warn',
       msg_zh: 'package.json 未定义 start 脚本，无法在干净环境启动',
       msg_en: 'package.json defines no start script — cannot run in a clean env',
+    });
+  } else if (res.installTimedOut) {
+    findings.push({
+      severity: 'fail',
+      msg_zh: `干净环境依赖安装超时（>${Math.round(cfg.timeoutMs / 1000)}s，疑似卡在 registry 或网络）`,
+      msg_en: `dependency install timed out in the clean env (>${Math.round(cfg.timeoutMs / 1000)}s — likely waiting on registry/network)`,
+      evidence: res.stderrTail || undefined,
     });
   } else if (res.installFailed) {
     findings.push({
@@ -274,9 +293,13 @@ export async function runSandbox(projectPath: string, cfg: VibeGateConfig): Prom
 }
 
 function detectRuntimeForRun(projectPath: string): Runtime {
+  // mirror detectRuntime (verdict.ts) mini-program markers so the sandbox and
+  // the verdict agree — a game.json-only WeChat mini-game is mini-program here
+  // too, not a node project that runs (and warns "no start script").
   if (
     existsSync(resolve(projectPath, 'project.config.json')) ||
-    existsSync(resolve(projectPath, 'app.json'))
+    existsSync(resolve(projectPath, 'app.json')) ||
+    existsSync(resolve(projectPath, 'game.json'))
   ) {
     return 'mini-program';
   }

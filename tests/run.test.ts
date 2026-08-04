@@ -89,3 +89,24 @@ test('clean-run passes when the start script exits 0', async () => {
     assert.ok(check.findings.some((f) => /succeeded/i.test(f.msg_en)), 'records a success');
   });
 });
+
+test('clean-run treats a game.json-only project as mini-program and skips the run', async () => {
+  // A WeChat mini-game ships only game.json. Without the game.json marker,
+  // detectRuntimeForRun would fall through to 'node' and try to run a start
+  // script that doesn't exist (a self-contradiction vs the verdict's
+  // mini-program classification). With the marker it is skipped as a
+  // mini-program, consistent with detectRuntime in verdict.ts.
+  const dir = await makeProject(
+    'game',
+    { name: 'mini-game', version: '1.0.0', scripts: { start: 'node app.js' }, dependencies: {} },
+    { 'game.json': JSON.stringify({ deviceOrientation: 'portrait' }, null, 2) + '\n' },
+  );
+  await withDir(dir, async () => {
+    const check = await runSandbox(dir, { ...CFG, timeoutMs: 8_000 });
+    assert.equal(check.status, 'warn');
+    assert.ok(
+      check.findings.some((f) => /mini-program runtime/i.test(f.msg_en)),
+      'skips the run as a mini-program',
+    );
+  });
+});
