@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { execSync } from 'node:child_process';
 import { scanReadiness } from '../src/scan/readiness.js';
 import { scanLicense } from '../src/scan/license.js';
 import { buildVerdict, detectProject, assertValid } from '../src/report/verdict.js';
@@ -21,10 +25,20 @@ test('readiness flags the obvious smells on the sloppy fixture', async () => {
   assert.ok(en.some((m) => /no license field/i.test(m)), 'flags missing license field');
   assert.ok(check.findings.some((f) => /hardcoded secret/i.test(f.msg_en)), 'flags hardcoded secrets');
   assert.ok(check.findings.some((f) => /console\.log/i.test(f.msg_en)), 'flags console.log in prod');
-  // a vibe-coded app would never have just one secret
+  // console.log in a test file (tests/sample.test.ts) must NOT be flagged —
+  // regression guard for the SCAN_IGNORE test/spec glob exclusion.
   assert.ok(
-    check.findings.filter((f) => /hardcoded secret/i.test(f.msg_en)).length >= 2,
-    'finds more than one secret',
+    !check.findings.some(
+      (f) => /console\.log/i.test(f.msg_en) && /sample\.test/i.test(f.evidence ?? ''),
+    ),
+    'does NOT flag console.log in a test file',
+  );
+  // a vibe-coded app would never have just one secret. >= 3 requires the
+  // case-insensitive regex (dbPassword + API_KEY are only detectable with the
+  // `i` flag on the generic credential-assignment pattern — regression guard).
+  assert.ok(
+    check.findings.filter((f) => /hardcoded secret/i.test(f.msg_en)).length >= 3,
+    'finds more than two secrets (incl. uppercase/mixed-case keys via case-insensitive regex)',
   );
 });
 
@@ -69,4 +83,59 @@ test('aggregate verdict is red and the VerdictReport validates against the schem
   assert.equal(report.checks.length, 2);
   assert.ok(report.generated_at, 'generated_at is set');
   assert.doesNotThrow(() => assertValid(report), 'report must pass the schema');
+});
+
+async function makeGitProject(label: string, files: Record<string, string>): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), `vibegate-nm-${label}-`));
+  await mkdir(dir, { recursive: true });
+  for (const [path, content] of Object.entries(files)) {
+    const sub = join(dir, path);
+    await mkdir(join(sub, '..'), { recursive: true });
+    await writeFile(sub, content);
+  }
+  execSync('git init -q', { cwd: dir });
+  execSync('git add -A', { cwd: dir });
+  execSync('git -c user.name=test -c user.email=test@test -c commit.gpgsign=false commit -q -m init', { cwd: dir });
+  return dir;
+}
+
+test('node_modules present but gitignored warns (not a false "committed" fail)', async () => {
+  // A developer's healthy project: node_modules exists locally but is
+  // gitignored + untracked. The readiness check must WARN ("present — verify
+  // gitignored"), NOT emit a false "committed" FAIL on the canonical happy path.
+  const dir = await makeGitProject('ignored', {
+    'package.json': JSON.stringify({ name: 'clean-app', version: '1.0.0', license: 'MIT' }, null, 2),
+    'README.md': '# clean app\n',
+    '.gitignore': 'node_modules/\n',
+    'node_modules/.keep': '',
+  });
+  try {
+    const check = await scanReadiness(dir, DEFAULT_CONFIG);
+    const nm = check.findings.find((f) => /node_modules/i.test(f.msg_en));
+    assert.ok(nm, 'emits a node_modules finding');
+    assert.equal(nm?.severity, 'warn', 'present node_modules is a warn, not a fail');
+    assert.match(nm!.msg_en, /is present/i, 'message says "present", not "committed"');
+    assert.doesNotMatch(nm!.msg_en, /is committed/i, 'does not falsely claim committed');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('node_modules genuinely tracked fails as committed', async () => {
+  // A genuinely sloppy project: node_modules is tracked by git. The readiness
+  // check must still FAIL "committed" (the hard path is preserved).
+  const dir = await makeGitProject('tracked', {
+    'package.json': JSON.stringify({ name: 'sloppy-app', version: '1.0.0' }, null, 2),
+    'README.md': '# sloppy\n',
+    'node_modules/somepkg/package.json': JSON.stringify({ name: 'somepkg', version: '1.0.0' }),
+  });
+  try {
+    const check = await scanReadiness(dir, DEFAULT_CONFIG);
+    const nm = check.findings.find((f) => /node_modules/i.test(f.msg_en));
+    assert.ok(nm, 'emits a node_modules finding');
+    assert.equal(nm?.severity, 'fail', 'tracked node_modules fails');
+    assert.match(nm!.msg_en, /committed/i, 'message says "committed"');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

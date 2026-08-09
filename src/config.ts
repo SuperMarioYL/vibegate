@@ -159,6 +159,14 @@ export const SCAN_IGNORE = [
   '**/.git/**',
   '**/.next/**',
   '**/coverage/**',
+  // non-production source: legitimate console.log / fake fixture secrets in
+  // tests, specs, and type declarations must not inflate the readiness verdict
+  // toward yellow/red with a factually-wrong "production path" message.
+  '**/*.test.{js,ts,jsx,tsx,mjs,cjs}',
+  '**/*.spec.{js,ts,jsx,tsx,mjs,cjs}',
+  '**/tests/**',
+  '**/__tests__/**',
+  '**/*.d.ts',
 ];
 
 /** Readme file candidates in priority order. */

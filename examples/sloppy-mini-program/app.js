@@ -20,6 +20,7 @@
 const ALIYUN_AKID = 'AKIDABCDEFGHIJKLMNOPQRSTUVWXYZ1234';
 const openaiKey = 'sk-proj-abcdefghijklmnopqrstuvwxyz0123456789';
 const dbPassword = 'super-secret-db-p@ssword-2026';
+const API_KEY = 'super-secret-api-key-value-9999';
 
 console.log('booting sloppy mini-program, AKID =', ALIYUN_AKID);
 

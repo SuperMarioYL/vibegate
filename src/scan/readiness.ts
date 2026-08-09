@@ -6,6 +6,7 @@
 import { existsSync, statSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { resolve, relative } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import fg from 'fast-glob';
 import type { Check, Finding, VibeGateConfig } from '../config.js';
 import {
@@ -47,16 +48,41 @@ function hasGitignore(projectPath: string): boolean {
   return existsSync(resolve(projectPath, '.gitignore'));
 }
 
-function nodeModulesCommitted(projectPath: string): boolean {
+function nodeModulesStatus(projectPath: string): { present: boolean; committed: boolean } {
   const nm = resolve(projectPath, 'node_modules');
-  return existsSync(nm) && statSync(nm).isDirectory();
+  if (!existsSync(nm) || !statSync(nm).isDirectory()) {
+    return { present: false, committed: false };
+  }
+  // node_modules is present. Determine whether it is actually TRACKED by git
+  // (genuinely committed), so a developer's gitignored node_modules no longer
+  // produces a false "committed" RED on the canonical happy path. On a non-git
+  // repo or when git is unavailable, we cannot confirm "committed" — surface as
+  // a warn ("present — verify it is gitignored"), never a false fail.
+  let committed = false;
+  try {
+    const r = spawnSync('git', ['-C', projectPath, 'ls-files', '--error-unmatch', '--', 'node_modules'], {
+      cwd: projectPath,
+      encoding: 'utf8',
+    });
+    committed = (r.status ?? 1) === 0;
+  } catch {
+    committed = false;
+  }
+  return { present: true, committed };
 }
 
 function compileSecretPatterns(cfg: VibeGateConfig): RegExp[] {
   const sources = [...SECRET_PATTERN_SOURCES, ...cfg.extraSecretPatterns];
   return sources.map((s) => {
     try {
-      return new RegExp(s, 'g');
+      // The generic credential-assignment pattern (its key alternation contains
+      // 'password') is compiled case-insensitively so uppercase / mixed-case
+      // keys (API_KEY, PASSWORD, dbPassword, TOKEN, SecretKey) are detected —
+      // previously they were a silent false negative. The keyed-prefix patterns
+      // (sk-, AKID, LTAI, AKIA, BEGIN ... PRIVATE KEY, AWS 40-char) stay
+      // case-specific so a lowercase 'akid' in prose cannot false-match.
+      const flags = s.includes('password') ? 'gi' : 'g';
+      return new RegExp(s, flags);
     } catch {
       return null;
     }
@@ -171,12 +197,19 @@ export async function scanReadiness(
     });
   }
 
-  // 3. node_modules committed
-  if (nodeModulesCommitted(root)) {
+  // 3. node_modules committed vs merely present
+  const nm = nodeModulesStatus(root);
+  if (nm.committed) {
     findings.push({
       severity: 'fail',
       msg_zh: 'node_modules/ 被提交进仓库（体积巨大且混入本地密钥的风险高）',
       msg_en: 'node_modules/ is committed (huge, and likely to leak local secrets)',
+    });
+  } else if (nm.present) {
+    findings.push({
+      severity: 'warn',
+      msg_zh: 'node_modules/ 存在（请确认已被 .gitignore 忽略，未提交进仓库）',
+      msg_en: 'node_modules/ is present (verify it is gitignored, not committed)',
     });
   }
 
@@ -215,6 +248,6 @@ export {
   hasReadableReadme,
   hasLockfile,
   hasGitignore,
-  nodeModulesCommitted,
+  nodeModulesStatus,
   compileSecretPatterns,
 };
