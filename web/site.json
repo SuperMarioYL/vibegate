@@ -39,10 +39,10 @@
     {
       "title": { "zh": "生产可用，先静态扫一遍", "en": "Production-ready, a static sweep first" },
       "body": {
-        "zh": "跑之前先扫就绪信号：缺 README、没锁文件、把 node_modules 提交进库、没有 .gitignore、硬编码密钥、满屏 console.log——这些一看就是还没法上线的痕迹。",
-        "en": "Before running, sweep for readiness signals: missing README, no lockfile, node_modules committed, no .gitignore, hardcoded secrets, console.log everywhere — the tell-tale signs it isn't shippable yet."
+        "zh": "跑之前先扫就绪信号：缺 README、没锁文件、把 node_modules 真提交进库、没有 .gitignore、硬编码密钥、生产路径残留 console.log——这些一看就是还没法上线的痕迹。判断更诚实：本地装着但已 gitignore 的 node_modules 只提醒不判红，测试里的 console.log 不再误报，连大写变量名的密钥也抓得到。",
+        "en": "Before running, sweep for readiness signals: missing README, no lockfile, node_modules genuinely committed, no .gitignore, hardcoded secrets, console.log left in production paths — the tell-tale signs it isn't shippable yet. The verdict is honest: a locally-installed but gitignored node_modules only warns (no false red), console.log in test files is ignored, and even uppercase or mixed-case key names get caught."
       },
-      "chips": ["› 就绪启发式扫描", "› 密钥 / 调试残留"]
+      "chips": ["› 就绪启发式扫描", "› 密钥 / 调试残留", "› 误报更少 · 不漏报"]
     },
     {
       "title": { "zh": "非开发者读得懂 · 不用账号", "en": "A non-dev can read it · no account" },
@@ -72,7 +72,7 @@
     "tag": { "zh": "给 vibe-code 出来的应用放行的本地闸门", "en": "The local gate that ships vibe-coded apps" }
   },
   "meta": {
-    "content_version": "v0.2.0",
-    "generated_at": "2026-08-05"
+    "content_version": "v0.3.0",
+    "generated_at": "2026-08-10"
   }
 }
