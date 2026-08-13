@@ -127,8 +127,15 @@ export const SECRET_PATTERN_SOURCES: string[] = [
   'AKIA[0-9A-Z]{16}',
   // OpenAI / Anthropic / common sk- keys (allow internal hyphens for sk-proj- / sk-ant- forms)
   'sk-[A-Za-z0-9-]{20,}',
-  // AWS secret keys (40 base64-ish)
-  '(?<![A-Za-z0-9/+])[A-Za-z0-9/+]{40}(?![A-Za-z0-9/+])',
+  // AWS secret keys (40 base64-ish) — fix-aws-40char-secret-false-positive:
+  // the bare 40-char pattern matched ANY standalone 40-char base64-ish run, and
+  // hex is a subset, so 40-hex git commit SHAs / sha1 hashes in source or
+  // comments were flagged severity:fail "hardcoded secret" (a false RED on
+  // healthy projects). The negative lookahead now rejects pure-40-hex runs
+  // (incl. uppercase hex SHAs) while still catching real AWS secrets, which are
+  // 40-char base64 that always contain at least one non-hex char (A-Z beyond
+  // A-F, a-z beyond a-f, '+' or '/').
+  '(?<![A-Za-z0-9/+])(?![0-9a-fA-F]{40}(?![A-Za-z0-9/+]))[A-Za-z0-9/+]{40}(?![A-Za-z0-9/+])',
   // generic assignment of a credential-looking literal
   '(?:access_key_id|accessKeyId|secret_access_key|secretAccessKey|aws_secret_access_key|secretKey|passwd|password|api[_-]?key|apiKey|auth[_-]?token|authToken|client[_-]?secret|clientSecret)["\']?\\s*[:=]\\s*["\'][^"\'\\s]{8,}["\']',
   // private key headers
@@ -185,8 +192,14 @@ export const LOCKFILE_CANDIDATES = [
 export function isCopyleft(license: string | undefined): 'strong' | 'weak' | null {
   if (!license) return null;
   const norm = license.toLowerCase();
-  if (COPYLEFT_STRONG.some((c) => norm.includes(c))) return 'strong';
+  // fix-lgpl-misclassified-strong-copyleft: check WEAK before STRONG. The bare
+  // 'gpl' entry in COPYLEFT_STRONG is a substring of 'lgpl', so the previous
+  // STRONG-first order made every LGPL license match 'gpl' and return 'strong'
+  // (a false RED) — the LGPL entries in COPYLEFT_WEAK were dead code. Weak
+  // patterns never match AGPL/SSPL/GFDL/GPL ids, so those still fall through to
+  // strong; only LGPL/MPL/EPL/CDDL/EUPL are correctly classified as weak now.
   if (COPYLEFT_WEAK.some((c) => norm.includes(c))) return 'weak';
+  if (COPYLEFT_STRONG.some((c) => norm.includes(c))) return 'strong';
   return null;
 }
 

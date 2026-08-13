@@ -1,7 +1,7 @@
 {
   "name": "vibegate",
-  "version": "0.3.0",
-  "description": "VibeGate is the local readiness gate that green-lights vibe-coded apps for non-dev shippers — one command, bilingual traffic-light verdict on clean-env run + readiness + license.",
+  "version": "0.4.0",
+  "description": "VibeGate is the local readiness gate that green-lights vibe-coded apps for non-dev shippers \u2014 one command, bilingual traffic-light verdict on clean-env run + readiness + license.",
   "type": "module",
   "main": "dist/cli.js",
   "bin": {
@@ -18,7 +18,7 @@
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsx src/cli.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --import tsx --test tests/scan.test.ts tests/run.test.ts",
+    "test": "node --import tsx --test tests/scan.test.ts tests/run.test.ts tests/config.test.ts",
     "prepublishOnly": "tsc -p tsconfig.build.json && chmod +x dist/cli.js",
     "demo:render": "vhs docs/demo.tape"
   },
