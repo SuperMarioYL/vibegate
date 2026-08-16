@@ -22,6 +22,15 @@ export interface Finding {
   msg_zh: string;
   msg_en: string;
   evidence?: string;
+  /**
+   * Stable machine code identifying the finding class (e.g. `no-readme`,
+   * `crash`, `install-failed`). fix-dead-fix-hints-remediation: stamped at
+   * emission time in readiness/license/sandbox so the report's "Top fixes
+   * (how to fix)" section can look up the prepared bilingual FIX_HINTS
+   * remediation guidance keyed by this code. Optional — findings without a
+   * matching hint fall back to the fail message.
+   */
+  code?: string;
 }
 
 export interface Check {
@@ -266,6 +275,7 @@ export const VERDICT_REPORT_SCHEMA = {
                 msg_zh: { type: 'string' },
                 msg_en: { type: 'string' },
                 evidence: { type: 'string' },
+                code: { type: 'string' },
               },
             },
           },

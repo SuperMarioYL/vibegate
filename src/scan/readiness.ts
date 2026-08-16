@@ -137,6 +137,7 @@ function scanSecrets(files: ScanFile[], projectPath: string, patterns: RegExp[])
           ).trim();
           findings.push({
             severity: 'fail',
+            code: 'hardcoded-secret',
             msg_zh: '疑似硬编码密钥 / 凭据',
             msg_en: 'hardcoded secret / credential',
             evidence: `${where}  ${masked.slice(0, 80)}`,
@@ -159,6 +160,7 @@ function scanConsoleLog(files: ScanFile[], projectPath: string): Finding[] {
       if (line && re.test(line)) {
         findings.push({
           severity: 'warn',
+          code: 'console-log-in-prod',
           msg_zh: '生产路径残留 console.log',
           msg_en: 'console.log left in a production path',
           evidence: `${rel(projectPath, file.path)}:${i + 1}  ${line.trim().slice(0, 70)}`,
@@ -183,6 +185,7 @@ export async function scanReadiness(
   if (!hasReadableReadme(root)) {
     findings.push({
       severity: 'fail',
+      code: 'no-readme',
       msg_zh: '缺少 README（非开发者无法判断项目用途与启动方式）',
       msg_en: 'no README (a non-dev cannot tell what this is or how to run it)',
     });
@@ -192,6 +195,7 @@ export async function scanReadiness(
   if (!hasLockfile(root)) {
     findings.push({
       severity: 'warn',
+      code: 'no-lockfile',
       msg_zh: '缺少 lockfile（依赖版本不固定，干净环境可能装出不同结果）',
       msg_en: 'no lockfile (deps are unpinned — clean env may install differently)',
     });
@@ -202,6 +206,7 @@ export async function scanReadiness(
   if (nm.committed) {
     findings.push({
       severity: 'fail',
+      code: 'node_modules-committed',
       msg_zh: 'node_modules/ 被提交进仓库（体积巨大且混入本地密钥的风险高）',
       msg_en: 'node_modules/ is committed (huge, and likely to leak local secrets)',
     });
@@ -217,6 +222,7 @@ export async function scanReadiness(
   if (!hasGitignore(root)) {
     findings.push({
       severity: 'warn',
+      code: 'no-gitignore',
       msg_zh: '缺少 .gitignore（node_modules/ 与密钥文件容易误提交）',
       msg_en: 'no .gitignore (node_modules/ and secret files are easily committed)',
     });
@@ -226,6 +232,7 @@ export async function scanReadiness(
   if (pkg && !('license' in pkg)) {
     findings.push({
       severity: 'warn',
+      code: 'no-license-field',
       msg_zh: 'package.json 未声明 license 字段',
       msg_en: 'package.json has no license field declared',
     });

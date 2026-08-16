@@ -132,11 +132,23 @@ const en: Lang = {
     `VibeGate ✓ ship-clean · ${r.project.runtime} · ${r.verdict} · ${r.generated_at}`,
 };
 
-function topFailFindings(report: VerdictReport, limit = 3): Array<Finding & { code?: string }> {
+function topFailFindings(report: VerdictReport, limit = 3): Finding[] {
   return report.checks
     .flatMap((c) => c.findings)
     .filter((f) => f.severity === 'fail')
     .slice(0, limit);
+}
+
+/**
+ * fix-dead-fix-hints-remediation: the bilingual how-to-fix text for a finding,
+ * drawn from the prepared FIX_HINTS catalog keyed by the finding's `code`. A
+ * non-dev learns HOW to fix what is broken, not just WHAT is broken. Falls
+ * back to the fail message (lang.finding) when the finding has no code or no
+ * hint exists for that code, so the section is never empty.
+ */
+function fixHint(f: Finding, lang: Lang): string {
+  const hint = f.code ? FIX_HINTS[f.code]?.[lang.code] : undefined;
+  return hint ?? lang.finding(f);
 }
 
 function block(report: VerdictReport, lang: Lang): string {
@@ -149,8 +161,10 @@ function block(report: VerdictReport, lang: Lang): string {
   if (report.verdict === 'red') {
     const tops = topFailFindings(report);
     if (tops.length > 0) {
+      // emit the prepared bilingual FIX_HINTS remediation guidance (not a
+      // duplicate of the ✗ fail messages already shown in the body above).
       const list = tops
-        .map((f, i) => `   ${i + 1}. ${lang.finding(f)}`)
+        .map((f, i) => `   ${i + 1}. ${fixHint(f, lang)}`)
         .join('\n');
       out += `\n  ${ANSI.bold}${lang.fixHeader}${ANSI.reset}\n${list}\n${sep}`;
     }

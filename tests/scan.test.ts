@@ -8,7 +8,8 @@ import { execSync } from 'node:child_process';
 import { scanReadiness } from '../src/scan/readiness.js';
 import { scanLicense } from '../src/scan/license.js';
 import { buildVerdict, detectProject, assertValid } from '../src/report/verdict.js';
-import { DEFAULT_CONFIG } from '../src/config.js';
+import { formatVerdict } from '../src/report/i18n.js';
+import { DEFAULT_CONFIG, type VerdictReport } from '../src/config.js';
 
 const FIXTURE = fileURLToPath(new URL('../examples/sloppy-mini-program/', import.meta.url));
 
@@ -138,4 +139,76 @@ test('node_modules genuinely tracked fails as committed', async () => {
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+// ─── fix-dead-fix-hints-remediation regression coverage ───────────────────────
+
+test('Top fixes section emits FIX_HINTS bilingual how-to-fix hints, not the fail messages', () => {
+  // fix-dead-fix-hints-remediation: the "首要修复建议（怎么修）" /
+  // "Top fixes (how to fix)" section must emit the prepared bilingual
+  // FIX_HINTS['no-readme'] hint, NOT just re-list the ✗ fail message (which
+  // already appears in the body above). The hint strings exist ONLY in
+  // FIX_HINTS, so their presence proves the catalog is consulted; the
+  // distinctive fail-message stub text must NOT leak into the top-fixes
+  // section (proving it is not a duplicate of the fail message).
+  const report: VerdictReport = {
+    project: { path: '/tmp/vibegate-fix-hints-demo', runtime: 'node' },
+    checks: [
+      {
+        id: 'readiness',
+        status: 'fail',
+        findings: [
+          {
+            severity: 'fail',
+            code: 'no-readme',
+            msg_zh: '缺少 README（测试桩 — 仅供参考）',
+            msg_en: 'no README (test stub — for assertion only)',
+          },
+        ],
+      },
+    ],
+    verdict: 'red',
+    generated_at: '2026-08-17T00:00:00.000Z',
+  };
+  // schema-validates with the new optional `code` property on Finding
+  assert.doesNotThrow(() => assertValid(report));
+
+  const out = formatVerdict(report);
+  // both top-fixes headers render (verdict is red)
+  assert.ok(out.includes('首要修复建议（怎么修）'), 'zh top-fixes header present');
+  assert.ok(out.includes('Top fixes (how to fix)'), 'en top-fixes header present');
+  // the prepared bilingual hints (these strings exist ONLY in FIX_HINTS)
+  assert.ok(out.includes('新增一个 README.md'), 'zh no-readme hint rendered');
+  assert.ok(out.includes('add a README.md'), 'en no-readme hint rendered');
+  // the fail message is NOT duplicated into the top-fixes section: everything
+  // after each header must be the hint, not the fail-message stub text
+  const zhAfter = out.split('首要修复建议（怎么修）')[1] ?? '';
+  const enAfter = out.split('Top fixes (how to fix)')[1] ?? '';
+  assert.ok(!zhAfter.includes('测试桩'), 'zh top-fixes line is the hint, not the fail message');
+  assert.ok(!enAfter.includes('test stub'), 'en top-fixes line is the hint, not the fail message');
+});
+
+test('end-to-end: the sloppy fixture renders FIX_HINTS hints in the top-fixes section', async () => {
+  // Proves the wiring works end-to-end: readiness stamps `code: 'no-readme'`
+  // on the missing-README finding, buildVerdict produces a red report, and
+  // formatVerdict renders the prepared bilingual hint (not the fail message)
+  // in the "首要修复建议（怎么修）" section.
+  const project = await detectProject(FIXTURE);
+  const checks = [
+    await scanReadiness(FIXTURE, DEFAULT_CONFIG),
+    await scanLicense(FIXTURE, DEFAULT_CONFIG),
+  ];
+  const report = buildVerdict(project, checks);
+  assert.equal(report.verdict, 'red');
+
+  // the missing-README finding carries the no-readme code (stamped at emission)
+  const noReadme = report.checks
+    .flatMap((c) => c.findings)
+    .find((f) => /no README/i.test(f.msg_en));
+  assert.ok(noReadme, 'fixture has a no-README finding');
+  assert.equal(noReadme?.code, 'no-readme', 'no-README finding carries the no-readme code');
+
+  const out = formatVerdict(report);
+  assert.ok(out.includes('首要修复建议（怎么修）'), 'zh top-fixes header present');
+  assert.ok(out.includes('新增一个 README.md'), 'zh no-readme hint rendered end-to-end');
 });

@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runSandbox } from '../src/run/sandbox.js';
+import { runSandbox, startCommand } from '../src/run/sandbox.js';
 import { DEFAULT_CONFIG, type VibeGateConfig } from '../src/config.js';
 
 const CFG: VibeGateConfig = { ...DEFAULT_CONFIG, writeReport: false };
@@ -109,4 +110,81 @@ test('clean-run treats a game.json-only project as mini-program and skips the ru
       'skips the run as a mini-program',
     );
   });
+});
+
+// ─── fix-start-script-shell-metacharacters regression coverage ───────────────
+
+test('startCommand: a plain single-node script keeps the direct-node fast path', () => {
+  // No shell metacharacters → the direct-node fast path is preserved so a
+  // SIGTERM kill reaches the real process (not a wrapper). No regression.
+  assert.deepEqual(startCommand('node', 'node app.js'), { cmd: 'node', args: ['app.js'] });
+  assert.deepEqual(startCommand('node', 'node ./src/app.js --port=3000'), {
+    cmd: 'node',
+    args: ['./src/app.js', '--port=3000'],
+  });
+});
+
+test('startCommand: a compound / shell-y start script falls back to npm start', () => {
+  // Shell operators / quoting / expansion cannot be represented as a single
+  // node argv — run the start script through npm's shell so the user's
+  // package.json intent (&&, ||, ;, pipes, quotes, $VAR, backticks,
+  // redirections) is honored instead of being passed as literal argv.
+  const npmStart = { cmd: 'npm', args: ['start'] };
+  assert.deepEqual(startCommand('node', 'node seed.js && node server.js'), npmStart, '&&');
+  assert.deepEqual(startCommand('node', 'node a.js || node b.js'), npmStart, '||');
+  assert.deepEqual(startCommand('node', 'node a.js | node b.js'), npmStart, 'pipe');
+  assert.deepEqual(startCommand('node', 'node a.js; node b.js'), npmStart, ';');
+  assert.deepEqual(startCommand('node', 'node "my app.js"'), npmStart, 'double quotes');
+  assert.deepEqual(startCommand('node', "node 'app.js'"), npmStart, 'single quotes');
+  assert.deepEqual(startCommand('node', 'node a.js > out.log'), npmStart, 'redirect');
+  assert.deepEqual(startCommand('node', 'node a.js `echo b.js`'), npmStart, 'backtick');
+  assert.deepEqual(startCommand('node', 'node $APP.js'), npmStart, '$ expansion');
+  assert.deepEqual(startCommand('node', undefined), null, 'no start script → null');
+  assert.deepEqual(startCommand('bun', 'node app.js'), { cmd: 'bun', args: ['run', 'start'] }, 'bun runtime');
+});
+
+test('clean-run runs a compound start script (&&) through the shell so both scripts run', async () => {
+  // Regression for fix-start-script-shell-metacharacters. A compound start
+  // script `node seed.js && node server.js` must run BOTH scripts through
+  // npm's shell. The naive whitespace-split fast path would pass
+  // ['seed.js','&&','node','server.js'] as LITERAL argv to `node seed.js`,
+  // so seed.js would exit 0 (ignoring the junk argv) and server.js would
+  // NEVER run — a false GREEN (its crash never observed). With the fix, npm
+  // runs the compound script through a shell: seed.js runs (writes its
+  // marker), then server.js runs (writes its marker) and crashes, so the
+  // crash is observed and BOTH markers exist.
+  const markerDir = await mkdtemp(join(tmpdir(), 'vibegate-compound-marker-'));
+  const dir = await makeProject(
+    'compound',
+    {
+      name: 'compound-app',
+      version: '1.0.0',
+      scripts: { start: 'node seed.js && node server.js' },
+      dependencies: {},
+    },
+    {
+      // each script writes a marker into MARKER_DIR (inherited via env) so we
+      // can observe that BOTH ran; server.js then crashes.
+      'seed.js': "require('fs').writeFileSync(process.env.VIBEGATE_MARKER_DIR + '/seed.marker', '1');\n",
+      'server.js': "require('fs').writeFileSync(process.env.VIBEGATE_MARKER_DIR + '/server.marker', '1');\nthrow new Error('server-boom-COMPOUND-XYZ');\n",
+    },
+  );
+  const prevMarker = process.env.VIBEGATE_MARKER_DIR;
+  process.env.VIBEGATE_MARKER_DIR = markerDir;
+  try {
+    await withDir(dir, async () => {
+      const check = await runSandbox(dir, { ...CFG, timeoutMs: 8_000 });
+      assert.equal(check.status, 'fail', 'server.js crash is observed (no false GREEN from the split-argv bug)');
+      assert.ok(check.findings.some((f) => /crashed/i.test(f.msg_en)), 'reports a crash');
+      assert.ok(existsSync(join(markerDir, 'seed.marker')), 'seed.js ran (&& chain proceeded to server.js)');
+      assert.ok(
+        existsSync(join(markerDir, 'server.marker')),
+        'server.js ran (compound script executed via npm shell, not split into literal argv)',
+      );
+    });
+  } finally {
+    if (prevMarker === undefined) delete process.env.VIBEGATE_MARKER_DIR;
+    else process.env.VIBEGATE_MARKER_DIR = prevMarker;
+    await rm(markerDir, { recursive: true, force: true });
+  }
 });

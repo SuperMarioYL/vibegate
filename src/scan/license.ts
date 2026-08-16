@@ -66,6 +66,7 @@ async function scanCopyrightHeaders(projectPath: string): Promise<Finding[]> {
       const lineNo = lines.findIndex((l) => l.toLowerCase().includes(hit)) + 1;
       findings.push({
         severity: 'warn',
+        code: 'copy-pasted-copyright',
         msg_zh: `源码含第三方版权头（疑似拷贝的开源代码）`,
         msg_en: `source carries a third-party copyright header (likely copy-pasted OSS)`,
         evidence: `${rel(projectPath, abs)}:${lineNo || 1}  …${hit}…`,
@@ -88,6 +89,7 @@ function makeCopyleftFinding(
   if (kind === 'strong') {
     return {
       severity: 'fail',
+      code: 'copyleft-dep-strong',
       msg_zh: `依赖 ${where} 为 ${license}（强传染 copyleft，发布须按同许可证开源整包）`,
       msg_en: `dep ${where} is ${license} (strong copyleft — shipping requires open-sourcing the whole app)`,
       evidence: where,
@@ -95,6 +97,7 @@ function makeCopyleftFinding(
   }
   return {
     severity: 'warn',
+    code: 'copyleft-dep-weak',
     msg_zh: `依赖 ${where} 为 ${license}（弱 copyleft，需随附归属与许可证文本）`,
     msg_en: `dep ${where} is ${license} (weak copyleft — ship the attribution + license text)`,
     evidence: where,

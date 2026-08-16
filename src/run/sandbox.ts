@@ -79,13 +79,31 @@ async function copyProject(src: string, dest: string): Promise<void> {
   });
 }
 
-function startCommand(runtime: Runtime, startScript: string | undefined): { cmd: string; args: string[] } | null {
+// fix-start-script-shell-metacharacters: shell operators / quoting / expansion
+// that the direct-node fast path cannot represent faithfully. When any is
+// present in the start script the sandbox must run it through npm's shell
+// (npm runs scripts via a shell) so `&&`, `||`, `;`, pipes, redirections,
+// `$VAR`, backticks, `$(...)`, and quotes work as the user wrote them in
+// package.json. Without this guard, `node seed.js && node server.js` would
+// match the `^\s*node\s+` fast path and `.split(/\s+/)` would turn
+// `['seed.js','&&','node','server.js']` into LITERAL argv to `node seed.js`,
+// so `server.js` would never run and its crash would never be observed (a
+// false GREEN), or `seed.js` would choke on the unexpected argv (a false RED).
+const SHELL_METACHAR_RE = /[|;&<>$`"'()\\]/;
+
+function startCommand(
+  runtime: Runtime,
+  startScript: string | undefined,
+): { cmd: string; args: string[] } | null {
   if (!startScript) return null;
   if (runtime === 'bun') return { cmd: 'bun', args: ['run', 'start'] };
   // node runtime: prefer running the start script's node entry directly so a
-  // timeout kill reaches the actual process, not a wrapper. Fall back to npm.
+  // timeout kill reaches the actual process, not a wrapper. BUT only take this
+  // fast path when the script is a single node invocation with no shell
+  // metacharacters — compound scripts fall back to `npm start` (npm runs
+  // scripts through a shell) so the user's package.json intent is honored.
   const direct = startScript.match(/^\s*node\s+(.+)$/);
-  if (direct) {
+  if (direct && !SHELL_METACHAR_RE.test(startScript)) {
     const rest = direct[1].trim().split(/\s+/);
     return { cmd: 'node', args: rest };
   }
@@ -246,12 +264,14 @@ export async function runSandbox(projectPath: string, cfg: VibeGateConfig): Prom
   } else if (res.noStartScript) {
     findings.push({
       severity: 'warn',
+      code: 'no-start-script',
       msg_zh: 'package.json 未定义 start 脚本，无法在干净环境启动',
       msg_en: 'package.json defines no start script — cannot run in a clean env',
     });
   } else if (res.installTimedOut) {
     findings.push({
       severity: 'fail',
+      code: 'install-failed',
       msg_zh: `干净环境依赖安装超时（>${Math.round(cfg.timeoutMs / 1000)}s，疑似卡在 registry 或网络）`,
       msg_en: `dependency install timed out in the clean env (>${Math.round(cfg.timeoutMs / 1000)}s — likely waiting on registry/network)`,
       evidence: res.stderrTail || undefined,
@@ -259,6 +279,7 @@ export async function runSandbox(projectPath: string, cfg: VibeGateConfig): Prom
   } else if (res.installFailed) {
     findings.push({
       severity: 'fail',
+      code: 'install-failed',
       msg_zh: '干净环境依赖安装失败',
       msg_en: 'dependency install failed in the clean env',
       evidence: res.stderrTail || undefined,
@@ -266,6 +287,7 @@ export async function runSandbox(projectPath: string, cfg: VibeGateConfig): Prom
   } else if (res.timedOut) {
     findings.push({
       severity: 'fail',
+      code: 'timeout',
       msg_zh: `干净环境启动超时（>${Math.round(cfg.timeoutMs / 1000)}s，疑似卡在交互或网络等待）`,
       msg_en: `start timed out in the clean env (>${Math.round(cfg.timeoutMs / 1000)}s — likely waiting on interaction/network)`,
       evidence: res.stderrTail || undefined,
@@ -273,6 +295,7 @@ export async function runSandbox(projectPath: string, cfg: VibeGateConfig): Prom
   } else if (!res.ok) {
     findings.push({
       severity: 'fail',
+      code: 'crash',
       msg_zh: '干净环境启动崩溃',
       msg_en: 'start crashed in the clean env',
       evidence: res.stderrTail ? `exit ${res.exitCode ?? '?'}\n${res.stderrTail}` : `exit ${res.exitCode ?? '?'}`,
@@ -309,4 +332,7 @@ function detectRuntimeForRun(projectPath: string): Runtime {
   return 'node';
 }
 
-export { detectRuntimeForRun, cleanup as cleanupSandbox };
+// re-export startCommand for tests (mirrors readiness.ts's internal-helper
+// re-export pattern) so the shell-metacharacter execution-path decision can be
+// unit-tested without depending on child-process timing.
+export { detectRuntimeForRun, startCommand, cleanup as cleanupSandbox };

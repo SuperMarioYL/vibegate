@@ -4,6 +4,48 @@ All notable changes to VibeGate are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/), and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [v0.5.0] - 2026-08-17
+
+### Fixed
+
+- **`fix-start-script-shell-metacharacters`** — the clean-env sandbox's
+  node-runtime start-command runner (`src/run/sandbox.ts`) took the direct-`node`
+  fast path whenever the start script began with `node `, then `.split(/\s+/)`d
+  the remainder into argv and ran it WITHOUT a shell. So compound start scripts
+  (`node seed.js && node server.js`) had `&&`/`||`/`;`/pipes/quotes become
+  LITERAL argv to the first node script — `server.js` never ran, so a crash
+  there was never observed (a false GREEN), or `seed.js` choked on the
+  unexpected argv (a false RED). The sandbox thus executed a different command
+  than `npm start` would. The runner now detects shell metacharacters
+  (`&&`, `||`, `;`, `|`, `&`, `<`, `>`, `$`, backtick, quotes, `()`, `\`) and
+  falls back to `npm start` (npm runs scripts through a shell) for compound
+  scripts, while keeping the direct-`node` fast path (and its SIGTERM-reaches-
+  the-real-process optimization) for metacharacter-free single-node scripts.
+- **`fix-dead-fix-hints-remediation`** — the bilingual `FIX_HINTS` catalog
+  (`src/report/i18n.ts`) — 14 "how to fix" strings keyed by codes like
+  `no-readme`, `crash`, `install-failed` — was exported but NEVER consulted.
+  The "Top fixes (how to fix)" / "首要修复建议（怎么修）" report section just
+  re-listed the `✗` fail messages (already shown in the body) via
+  `lang.finding(f)`, so a non-dev learned WHAT was broken but not HOW to fix it.
+  Each `Finding` now carries a stable `code` stamped at emission time in
+  readiness/license/sandbox (added to the `Finding` type + AJV schema), and
+  `block()` looks up `FIX_HINTS[f.code][lang]` for the top-3 list (falling back
+  to the fail message when no hint exists for that code), so the section emits
+  the prepared bilingual how-to-fix instructions.
+
+### Tests
+
+- Added regression coverage in `tests/run.test.ts`: `startCommand` unit tests
+  assert a plain `node app.js` keeps the direct-node fast path while compound /
+  shell-y scripts (`&&`, `||`, `|`, `;`, quotes, `$`, backticks, redirects)
+  fall back to `npm start`; a process-level test asserts a compound
+  `node seed.js && node server.js` start script runs BOTH scripts through npm's
+  shell so the crash in `server.js` is observed (no false GREEN).
+- Added regression coverage in `tests/scan.test.ts`: a `no-readme` finding
+  renders its `FIX_HINTS` bilingual hint (not the fail message) in the top-fixes
+  section, plus an end-to-end test that the sloppy fixture stamps the `no-readme`
+  code and renders the hint.
+
 ## [v0.4.0] - 2026-08-13
 
 ### Fixed
