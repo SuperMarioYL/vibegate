@@ -11,7 +11,7 @@ import { randomUUID } from 'node:crypto';
 import { resolve, join } from 'node:path';
 import { execa, type Result } from 'execa';
 import type { Check, Finding, Runtime, VibeGateConfig } from '../config.js';
-import { statusFor } from '../config.js';
+import { statusFor, maskSecrets } from '../config.js';
 
 const STDERR_TAIL_LINES = 12;
 const GRACE_MS = 2_000;
@@ -23,6 +23,7 @@ interface RunResult {
   installFailed: boolean;
   noStartScript: boolean;
   skipped: boolean;
+  copyFailed: boolean;
   exitCode: number | null;
   stderrTail: string;
 }
@@ -110,6 +111,43 @@ function startCommand(
   return { cmd: 'npm', args: ['start'] };
 }
 
+// fix-clean-env-inherits-parent-env: the "clean env" sandbox must reflect a
+// fresh deploy, NOT the dev's shell. Previously the child was spawned with
+// `env: { ...process.env, ... }`, so the dev's own app-config tokens (e.g.
+// MY_CONFIG_TOKEN, which they set in their shell to run the app) leaked into
+// the sandbox and masked the very missing-env crash the clean-env run exists
+// to catch — a false GREEN on the canonical regression. It also let a sloppy
+// app exfiltrate the dev's real keys into the captured stderr (see the
+// separate stderr-masking fix). Now the child gets only a minimal OS/runtime
+// allowlist (PATH to find node/npm, HOME/USERPROFILE + the Windows spawn
+// essentials so `npm install` + the start script still work cross-platform),
+// never the app's own config tokens — so a missing-config crash surfaces as a
+// real RED, exactly as a fresh deploy would.
+const ENV_ALLOWLIST = [
+  'PATH',
+  'HOME',
+  'USERPROFILE',
+  'SYSTEMROOT',
+  'PATHEXT',
+  'APPDATA',
+  'LOCALAPPDATA',
+  'COMSPEC',
+];
+
+function cleanEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const k of ENV_ALLOWLIST) {
+    const v = process.env[k];
+    if (v !== undefined) env[k] = v;
+  }
+  // CI / color flags are runtime behavior knobs for the child, not app
+  // config tokens — keep them so output is deterministic and non-interactive.
+  env.CI = '1';
+  env.FORCE_COLOR = '0';
+  env.NO_COLOR = '1';
+  return env;
+}
+
 async function runChild(
   cmd: string,
   args: string[],
@@ -122,7 +160,12 @@ async function runChild(
     reject: false,
     detached: true,
     windowsHide: true,
-    env: { ...process.env, CI: '1', FORCE_COLOR: '0', NO_COLOR: '1' },
+    // extendEnv defaults to true in execa, which would merge cleanEnv() ON TOP
+    // of process.env (i.e. `{...process.env, ...env}`) and re-leak the dev's
+    // shell. The clean env must be EXCLUSIVE — only the allowlist below, never
+    // the parent shell — so a missing-config crash surfaces as a real RED.
+    extendEnv: false,
+    env: cleanEnv(),
   });
   const pid = subprocess.pid ?? null;
   const timer = setTimeout(() => {
@@ -174,6 +217,7 @@ async function runInSandbox(
     installFailed: false,
     noStartScript: false,
     skipped: false,
+    copyFailed: false,
     exitCode: null,
     stderrTail: '',
     ...over,
@@ -182,7 +226,16 @@ async function runInSandbox(
   try {
     await copyProject(projectPath, sandboxDir);
   } catch (e) {
-    return emptyResult({ stderrTail: `sandbox copy failed: ${String((e as Error).message)}` });
+    // fix-sandbox-copy-fail-leak-misreport: copyProject has already mkdir'd
+    // sandboxDir (and possibly copied some entries) before cp() throws (e.g.
+    // an unreadable .cache/venv subdir, a symlink loop, a special file). This
+    // used to be the ONLY branch that returned without cleanup, leaking a
+    // vibegate-* temp dir per failed-copy run; and emptyResult carried no
+    // distinguishing flag, so runSandbox fell through to the generic "start
+    // crashed" branch (start never ran — wrong layer). Reclaim the temp dir
+    // and stamp copyFailed so runSandbox reports a copy-phase failure instead.
+    await cleanup(sandboxDir);
+    return emptyResult({ copyFailed: true, stderrTail: `sandbox copy failed: ${String((e as Error).message)}` });
   }
 
   // mini-program: no standard runnable start script — skip the run, warn.
@@ -239,6 +292,7 @@ async function runInSandbox(
     installFailed: false,
     noStartScript: false,
     skipped: false,
+    copyFailed: false,
     exitCode,
     stderrTail: tail(stderrOf(run.result), STDERR_TAIL_LINES),
   };
@@ -255,11 +309,32 @@ export async function runSandbox(projectPath: string, cfg: VibeGateConfig): Prom
   const res = await runInSandbox(root, runtime, cfg);
   const findings: Finding[] = [];
 
+  // fix-sandbox-stderr-secret-leak: mask secret-looking runs in the captured
+  // stderr before it enters finding.evidence (and thus vibegate-report.json,
+  // which writeReport JSON.stringifies verbatim). A sloppy app that embeds a
+  // runtime/hardcoded secret in a thrown error (e.g. `throw new Error('...=' +
+  // secret)`) would otherwise leak it UNMASKED — unlike scanSecrets, which
+  // masks its own evidence. Reuse the exact redaction transform the readiness
+  // lane uses (maskSecrets) so both lanes share one masking contract.
+  const stderrEvidence = maskSecrets(res.stderrTail);
+
   if (res.skipped) {
     findings.push({
       severity: 'warn',
       msg_zh: '小程序运行时，无标准启动脚本，干净环境实跑已跳过（请在微信开发者工具中运行）',
       msg_en: 'mini-program runtime has no standard start script — clean-env run skipped (open in WeChat DevTools)',
+    });
+  } else if (res.copyFailed) {
+    // fix-sandbox-copy-fail-leak-misreport: a dedicated copy-phase branch ahead
+    // of the generic crash branch, so a copyProject failure is reported by the
+    // layer that actually failed (not as "start crashed" — the start script
+    // never ran). The leaked temp dir is reclaimed by cleanup in runInSandbox.
+    findings.push({
+      severity: 'fail',
+      code: 'sandbox-copy-failed',
+      msg_zh: '干净环境沙箱拷贝失败（无法将项目复制进临时目录，检查不可读目录 / 符号链接循环 / 特殊文件）',
+      msg_en: 'sandbox copy failed in the clean env (could not copy the project into the temp dir — check for unreadable / looped / special files)',
+      evidence: stderrEvidence || undefined,
     });
   } else if (res.noStartScript) {
     findings.push({
@@ -274,7 +349,7 @@ export async function runSandbox(projectPath: string, cfg: VibeGateConfig): Prom
       code: 'install-failed',
       msg_zh: `干净环境依赖安装超时（>${Math.round(cfg.timeoutMs / 1000)}s，疑似卡在 registry 或网络）`,
       msg_en: `dependency install timed out in the clean env (>${Math.round(cfg.timeoutMs / 1000)}s — likely waiting on registry/network)`,
-      evidence: res.stderrTail || undefined,
+      evidence: stderrEvidence || undefined,
     });
   } else if (res.installFailed) {
     findings.push({
@@ -282,7 +357,7 @@ export async function runSandbox(projectPath: string, cfg: VibeGateConfig): Prom
       code: 'install-failed',
       msg_zh: '干净环境依赖安装失败',
       msg_en: 'dependency install failed in the clean env',
-      evidence: res.stderrTail || undefined,
+      evidence: stderrEvidence || undefined,
     });
   } else if (res.timedOut) {
     findings.push({
@@ -290,7 +365,7 @@ export async function runSandbox(projectPath: string, cfg: VibeGateConfig): Prom
       code: 'timeout',
       msg_zh: `干净环境启动超时（>${Math.round(cfg.timeoutMs / 1000)}s，疑似卡在交互或网络等待）`,
       msg_en: `start timed out in the clean env (>${Math.round(cfg.timeoutMs / 1000)}s — likely waiting on interaction/network)`,
-      evidence: res.stderrTail || undefined,
+      evidence: stderrEvidence || undefined,
     });
   } else if (!res.ok) {
     findings.push({
@@ -298,7 +373,7 @@ export async function runSandbox(projectPath: string, cfg: VibeGateConfig): Prom
       code: 'crash',
       msg_zh: '干净环境启动崩溃',
       msg_en: 'start crashed in the clean env',
-      evidence: res.stderrTail ? `exit ${res.exitCode ?? '?'}\n${res.stderrTail}` : `exit ${res.exitCode ?? '?'}`,
+      evidence: stderrEvidence ? `exit ${res.exitCode ?? '?'}\n${stderrEvidence}` : `exit ${res.exitCode ?? '?'}`,
     });
   } else {
     findings.push({

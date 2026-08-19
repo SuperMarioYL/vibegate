@@ -74,6 +74,7 @@ export const FIX_HINTS: Record<string, { zh: string; en: string }> = {
   'timeout': { zh: '启动卡住超时，检查启动脚本是否在等待交互 / 网络', en: 'start hung past the timeout — check for interactive/network waits' },
   'no-start-script': { zh: '在 package.json 的 scripts 里加一个 start', en: 'add a start script to package.json scripts' },
   'install-failed': { zh: '依赖安装失败，检查 package.json 与 node/npm 版本', en: 'dependency install failed — check package.json and node/npm versions' },
+  'sandbox-copy-failed': { zh: '沙箱拷贝失败，检查不可读目录 / 符号链接循环 / 特殊文件后重试', en: 'sandbox copy failed — check for unreadable dirs / symlink loops / special files and retry' },
 };
 
 // ───────────────────────────── formatting ─────────────────────────────────────

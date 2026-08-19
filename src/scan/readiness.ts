@@ -15,6 +15,7 @@ import {
   SCAN_IGNORE,
   SECRET_PATTERN_SOURCES,
   SOURCE_GLOBS,
+  maskSecrets,
   statusFor,
 } from '../config.js';
 
@@ -131,10 +132,11 @@ function scanSecrets(files: ScanFile[], projectPath: string, patterns: RegExp[])
           const where = `${rel(projectPath, file.path)}:${i + 1}`;
           if (seen.has(where)) break;
           seen.add(where);
-          // mask the secret for evidence — never echo the full credential
-          const masked = line.replace(/[A-Za-z0-9+/=_-]{6,}/g, (s) =>
-            s.length > 8 ? `${s.slice(0, 4)}…${s.slice(-2)}` : '****',
-          ).trim();
+          // mask the secret for evidence — never echo the full credential.
+          // maskSecrets is the shared redaction transform (config.ts) used by
+          // both this secret-scan lane and the clean-run sandbox stderr tails,
+          // so both lanes share one masking contract.
+          const masked = maskSecrets(line).trim();
           findings.push({
             severity: 'fail',
             code: 'hardcoded-secret',

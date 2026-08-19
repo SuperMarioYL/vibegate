@@ -66,6 +66,23 @@ export function aggregateVerdict(checks: Check[]): Verdict {
   return 'green';
 }
 
+/**
+ * Redact secret-looking runs in a captured text blob before it enters a
+ * Finding's evidence (and thus vibegate-report.json, which writeReport
+ * serializes verbatim). Single source of truth for the masking contract: both
+ * the readiness secret-scan lane (scanSecrets) and the clean-run sandbox lane
+ * (crash / install / timeout / copy-fail stderr tails) use this exact
+ * transform, so a sloppy app that embeds a credential in a thrown error or a
+ * source line cannot leak it unmasked into the report. Runs of 6+ credential-
+ * ish chars ([A-Za-z0-9+/=_-]) are shortened: >8 chars keep a 4…2 prefix/suffix,
+ * shorter runs become `****`.
+ */
+export function maskSecrets(text: string): string {
+  return text.replace(/[A-Za-z0-9+/=_-]{6,}/g, (s) =>
+    s.length > 8 ? `${s.slice(0, 4)}…${s.slice(-2)}` : '****',
+  );
+}
+
 // ───────────────────────────── tunable config ─────────────────────────────────
 
 export interface VibeGateConfig {

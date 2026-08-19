@@ -4,6 +4,60 @@ All notable changes to VibeGate are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/), and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [v0.6.0] - 2026-08-20
+
+### Fixed
+
+- **`fix-clean-env-inherits-parent-env`** — the clean-env sandbox child
+  (`src/run/sandbox.ts`) was spawned with `env: { ...process.env, ... }`, so
+  the "clean env" actually inherited the dev's whole shell environment. The
+  product's marketed core catch is an app that crashes on a missing env var
+  (e.g. `MY_CONFIG_TOKEN env var is required` → RED), but a dev who runs the
+  app has that token set in their shell; the sandbox child saw it, the app
+  exited 0, and runSandbox emitted an `info` pass — a false GREEN on exactly
+  the regression the clean-env run exists to catch. Inheriting `process.env`
+  also let a sloppy app exfiltrate the dev's real keys into the captured
+  stderr. The child now gets a minimal OS/runtime allowlist (PATH, HOME /
+  USERPROFILE, and the Windows spawn essentials SYSTEMROOT / PATHEXT / APPDATA
+  / LOCALAPPDATA / COMSPEC) plus the CI / color flags — never the app's own
+  config tokens — so a missing-config crash surfaces as a real RED, exactly
+  as a fresh deploy would.
+- **`fix-sandbox-copy-fail-leak-misreport`** — in `runInSandbox` the
+  `copyProject` step's catch returned `emptyResult` WITHOUT calling
+  `cleanup(sandboxDir)` — the only branch that skipped cleanup — so a
+  `vibegate-*` temp dir leaked in `os.tmpdir()` per failed-copy run (an
+  unreadable `.cache`/`venv` subdir, a symlink loop, or a special file makes
+  `cp` throw after `mkdir` has already created the sandbox dir). And because
+  `emptyResult` carried no distinguishing flag, `runSandbox` fell through to
+  the generic `code:'crash'` "start crashed in the clean env (exit null)"
+  branch — the user was told the start script crashed when in fact the sandbox
+  COPY failed and the start script never ran (wrong layer). The catch now
+  reclaims the temp dir via `cleanup(sandboxDir)` and stamps a `copyFailed`
+  flag; `runSandbox` has a dedicated copy-phase branch (`code:
+  'sandbox-copy-failed'`) ahead of the generic crash branch, so the temp dir
+  is reclaimed and the verdict names the right layer.
+- **`fix-sandbox-stderr-secret-leak`** — the clean-run crash / install /
+  timeout findings put `res.stderrTail` VERBATIM into `finding.evidence`, with
+  no masking (unlike `scanSecrets`, which masks its evidence). `writeReport`
+  then JSON.stringified it raw into `vibegate-report.json`, so a sloppy app
+  that embeds a runtime/hardcoded secret in a thrown error (e.g. `throw new
+  Error('...=' + secret)`) leaked it UNMASKED into a committed/shareable file.
+  The stderr tails are now masked with `maskSecrets` (the exact transform
+  `scanSecrets` uses, extracted to `config.ts` as the single source of truth)
+  before entering `finding.evidence`, so both the readiness and clean-run
+  lanes share one redaction contract.
+
+### Tests
+
+- Added regression coverage in `tests/run.test.ts`: the clean-env child does
+  NOT inherit the parent shell env (a missing-`MY_CONFIG_TOKEN` crash surfaces
+  as RED even when the dev has the token set in the parent); a copy failure
+  reclaims the temp sandbox dir (no `vibegate-*` leak) and is reported as a
+  copy-phase failure (not a start crash); a secret embedded in a thrown error
+  is masked out of `finding.evidence`. The existing compound-start-script test
+  was rewritten to bake marker paths into the scripts (the clean-env child no
+  longer inherits parent env vars).
+
 ## [v0.5.0] - 2026-08-17
 
 ### Fixed
