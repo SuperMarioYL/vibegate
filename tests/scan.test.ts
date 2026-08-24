@@ -66,6 +66,42 @@ test('license scan flags the GPL dependency and the copy-pasted copyright header
   assert.ok(header, 'flags the copy-pasted GPL copyright header');
 });
 
+test('license scan flags a legacy `licenses` array-of-objects GPL dep (not a false GREEN)', async () => {
+  // copyleft-missed-legacy-licenses-format: the legacy npm `licenses` field is
+  // an array of objects like [{type:"GPL-3.0-only",url:"..."}]. normalizeLicense
+  // previously filtered out every object and returned "", so isCopyleft("") was
+  // null and a strong-copyleft devDependency sailed through as a false GREEN.
+  // The direct node_modules pass must still surface a strong-copyleft finding.
+  const dir = await makeGitProject('legacygpl', {
+    'package.json': JSON.stringify(
+      { name: 'legacy-app', version: '1.0.0', license: 'MIT', dependencies: { legacygpl: '^1.0.0' } },
+      null,
+      2,
+    ),
+    'README.md': '# legacy\n',
+    'node_modules/legacygpl/package.json': JSON.stringify(
+      {
+        name: 'legacygpl',
+        version: '1.0.0',
+        licenses: [{ type: 'GPL-3.0-only', url: 'http://choosealicense.com/licenses/gpl-3.0/' }],
+      },
+      null,
+      2,
+    ),
+  });
+  try {
+    const check = await scanLicense(dir, DEFAULT_CONFIG);
+    assert.equal(check.id, 'license');
+    assert.equal(check.status, 'fail', 'legacy licenses[] GPL-3.0-only dep must fail, not a false GREEN');
+    const copyleft = check.findings.find(
+      (f) => /legacygpl/.test(f.evidence ?? '') && f.code === 'copyleft-dep-strong',
+    );
+    assert.ok(copyleft, 'flags the legacy licenses[] GPL-3.0-only dep as strong copyleft');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('detectProject classifies the fixture as a node runtime', async () => {
   const project = await detectProject(FIXTURE);
   assert.equal(project.runtime, 'node');

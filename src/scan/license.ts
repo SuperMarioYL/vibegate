@@ -28,7 +28,25 @@ function rel(root: string, p: string): string {
 function normalizeLicense(license: unknown): string | undefined {
   if (!license) return undefined;
   if (typeof license === 'string') return license;
-  if (Array.isArray(license)) return license.filter((s) => typeof s === 'string').join(', ');
+  // Legacy npm `licenses` field is an array of objects like
+  // [{type:"GPL-3.0-only",url:"..."}]; map each entry's type/license/name so a
+  // strong-copyleft dep surfaced via that form still produces a finding instead
+  // of being dropped to "" (which isCopyleft treats as non-copyleft).
+  if (Array.isArray(license)) {
+    return license
+      .map((e) => {
+        if (typeof e === 'string') return e;
+        if (e && typeof e === 'object') {
+          const t = e as { type?: unknown; license?: unknown; name?: unknown };
+          if (typeof t.type === 'string') return t.type;
+          if (typeof t.license === 'string') return t.license;
+          if (typeof t.name === 'string') return t.name;
+        }
+        return '';
+      })
+      .filter(Boolean)
+      .join(', ');
+  }
   return undefined;
 }
 
