@@ -4,6 +4,47 @@ All notable changes to VibeGate are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/), and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] - 2026-09-02
+
+### Fixed
+
+- **`fix-license-singular-object-format`** — `normalizeLicense`
+  (`src/scan/license.ts`) handles the string form and, since v0.7.0, the legacy
+  `licenses` (plural) array-of-objects form. But the legacy npm `license`
+  (singular) single-object form — `{"type":"GPL-3.0","url":"..."}` — is a plain
+  object that is truthy, not a string, and not an array, so it fell through to
+  `return undefined`. `isCopyleft(undefined)` returns `null`, and
+  `scanNodeModulesDirect` emitted NO copyleft finding — the same class of
+  false-GREEN that v0.7.0 fixed for the array form. A GPL-tainted dependency
+  with the deprecated singular-object `license` field sailed through as
+  GREEN/YELLOW and the user shipped a GPL-tainted app believing the license was
+  clean. `normalizeLicense` now handles a plain object (not array) by
+  extracting its `type`/`license`/`name` string — the same extraction logic
+  already used for each array element in the v0.7.0 fix — so
+  `{"type":"GPL-3.0"}` resolves to `"GPL-3.0"` and `isCopyleft` returns
+  `"strong"`.
+
+### Tests
+
+- Added regression coverage in `tests/scan.test.ts`: a fixture whose
+  `license` field is the legacy single-object form `{type:"GPL-3.0"}`
+  produces a `copyleft-dep-strong` fail finding and `check.status === 'fail'`
+  (not a false GREEN).
+
+## [0.7.0] - 2026-08-24
+
+### Fixed
+
+- **`copyleft-missed-legacy-licenses-format`** — `normalizeLicense`
+  (`src/scan/license.ts`) only handled string and `Array<string>`. For the
+  legacy npm `licenses` field — an array of objects like
+  `[{type:"GPL-3.0-only",url:"..."}]` — every object was filtered out and
+  `isCopyleft("")` returned `null`, so a strong-copyleft devDependency sailed
+  through as a false GREEN. `normalizeLicense` now maps the legacy array-of-
+  objects by extracting each entry's `.type`/`.license`/`.name` string so
+  `[{type:"GPL-3.0-only"}]` resolves to `"GPL-3.0-only"` and `isCopyleft`
+  returns `"strong"`.
+
 ## [v0.6.0] - 2026-08-20
 
 ### Fixed

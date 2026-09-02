@@ -102,6 +102,47 @@ test('license scan flags a legacy `licenses` array-of-objects GPL dep (not a fal
   }
 });
 
+test('license scan flags a legacy `license` single-object GPL devDep (not a false GREEN)', async () => {
+  // fix-license-singular-object-format: the legacy npm `license` (singular)
+  // field can be a single object like {type:"GPL-3.0",url:"..."}. The v0.7.0
+  // fix handled the `licenses` (plural) array-of-objects form but this
+  // singular-object form fell through to `return undefined` in normalizeLicense,
+  // so isCopyleft(undefined) returned null and a strong-copyleft dep sailed
+  // through as a false GREEN. The bug is only observable for a devDependency:
+  // scanWithLicenseChecker runs with production:true, so it skips devDeps and
+  // the license-checker enrichment (which normalizes legacy forms to strings)
+  // never sees it — the direct node_modules pass is the only one that could
+  // catch it, and on v0.7.0 it returned undefined for the object form.
+  const dir = await makeGitProject('singulargpl', {
+    'package.json': JSON.stringify(
+      { name: 'singular-app', version: '1.0.0', license: 'MIT', devDependencies: { singulargpl: '^1.0.0' } },
+      null,
+      2,
+    ),
+    'README.md': '# singular\n',
+    'node_modules/singulargpl/package.json': JSON.stringify(
+      {
+        name: 'singulargpl',
+        version: '1.0.0',
+        license: { type: 'GPL-3.0', url: 'http://choosealicense.com/licenses/gpl-3.0/' },
+      },
+      null,
+      2,
+    ),
+  });
+  try {
+    const check = await scanLicense(dir, DEFAULT_CONFIG);
+    assert.equal(check.id, 'license');
+    assert.equal(check.status, 'fail', 'legacy license{} GPL-3.0 devDep must fail, not a false GREEN');
+    const copyleft = check.findings.find(
+      (f) => /singulargpl/.test(f.evidence ?? '') && f.code === 'copyleft-dep-strong',
+    );
+    assert.ok(copyleft, 'flags the legacy license{} GPL-3.0 devDep as strong copyleft');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('detectProject classifies the fixture as a node runtime', async () => {
   const project = await detectProject(FIXTURE);
   assert.equal(project.runtime, 'node');

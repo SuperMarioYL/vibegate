@@ -47,6 +47,19 @@ function normalizeLicense(license: unknown): string | undefined {
       .filter(Boolean)
       .join(', ');
   }
+  // Legacy npm `license` (singular) field is a single object like
+  // {type:"GPL-3.0",url:"..."} — a documented deprecated form. The v0.7.0 fix
+  // handled the `licenses` (plural) array-of-objects form but this singular-
+  // object form fell through to `return undefined`, so a strong-copyleft dep
+  // with this legacy format sailed through as a false-GREEN (isCopyleft
+  // treats undefined as non-copyleft). Extract type/license/name using the
+  // same logic the array branch uses for each element.
+  if (typeof license === 'object') {
+    const t = license as { type?: unknown; license?: unknown; name?: unknown };
+    if (typeof t.type === 'string') return t.type;
+    if (typeof t.license === 'string') return t.license;
+    if (typeof t.name === 'string') return t.name;
+  }
   return undefined;
 }
 
