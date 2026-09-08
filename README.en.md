@@ -1,164 +1,176 @@
-<div align="right"><sub><b>English</b>&nbsp;&nbsp;⇄&nbsp;&nbsp;<a href="./README.md">简体中文</a></sub></div>
+[简体中文](./README.md) · [Website](https://vibegate.lei6393.com) · [GitHub](https://github.com/SuperMarioYL/vibegate)
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./assets/hero-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="./assets/hero-light.svg">
-  <img src="./assets/hero-light.svg" width="880" alt="VibeGate hero">
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="./assets/presentation/hero-mobile-dark.svg">
+  <source media="(max-width: 600px)" srcset="./assets/presentation/hero-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/presentation/hero-dark.svg">
+  <img src="./assets/presentation/hero-light.svg" width="960" alt="Hero diagram">
 </picture>
 
-<p align="center"><sub>VibeGate is the local readiness gate that green-lights vibe-coded apps for non-dev shippers.</sub></p>
+# VibeGate
 
-<p align="center">
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="license"></a>
-  <img src="https://img.shields.io/github/v/release/SuperMarioYL/vibegate" alt="release">
-  <img src="https://img.shields.io/github/actions/workflow/status/SuperMarioYL/vibegate/ci.yml?branch=main&label=CI" alt="CI">
-  <img src="https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white" alt="node">
-  <img src="https://img.shields.io/badge/vibe--coding-ready-5E5CE6" alt="vibe-coding">
-  <img src="https://img.shields.io/badge/ship--readiness-10A37F" alt="ship-readiness">
-</p>
+**See the next issue to fix before sharing an app.**
 
-**One command gives any vibe-coded app a local health check — does it run in a clean env, is it production-ready, is the license/copyright clean — a bilingual red/yellow/green verdict in one line. No account, no dev or legal background required.**
+VibeGate combines a static project check, license-policy findings and a startup run into a bilingual red/yellow/green report with concrete next-step hints.
 
-<h2><img src="https://api.iconify.design/tabler:topology-star-3.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Architecture</h2>
+## Why use it
+
+A project may run in a developer’s shell while missing a README, relying on local configuration or failing a fresh start. Separate checks show which of those conditions needs attention.
+
+- **Separate the checks** — Readiness, license and startup retain their own results.
+- **Explain the next change** — Findings include bilingual remediation hints.
+- **Keep a structured report** — JSON exposes the same checks as the terminal view.
+
+## Architecture
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./assets/atlas-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="./assets/atlas-light.svg">
-  <img src="./assets/atlas-light.svg" width="880" alt="architecture: project → VibeGate three checks → bilingual verdict">
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="./assets/presentation/architecture-mobile-dark.svg">
+  <source media="(max-width: 600px)" srcset="./assets/presentation/architecture-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/presentation/architecture-dark.svg">
+  <img src="./assets/presentation/architecture-light.svg" width="960" alt="Architecture diagram">
 </picture>
 
-A single process, a single npx package. Three pure modules feed one reporter: **readiness** (static heuristics over files), **license** (license enumeration + copyleft classification + copyright-header sniffing), and **clean-run** (a temp sandbox with a fresh install and a 30s-timeout child process). They roll up into one bilingual `VerdictReport` — both a terminal red/yellow/green verdict and a machine-readable `vibegate-report.json`. No Docker, no daemon, no cloud — non-devs don't have those.
+The CLI detects runtime markers and loads .vibegate.yml. Readiness and license scanners collect findings. The startup path copies the project to a temporary directory, installs dependencies when present and runs its start command with a reduced environment and timeout. The report takes the worst check status.
 
-## Contents
+| Component | Responsibility |
+| --- | --- |
+| `Project + config` | src/config.ts |
+| `Static checks` | src/scan |
+| `Temporary startup` | src/run/sandbox.ts |
+| `Bilingual verdict` | src/report |
 
-- [Why this exists](#why-this-exists)
-- [Install & Quickstart](#install--quickstart)
-- [Usage](#usage)
-- [Demo](#demo)
-- [Configuration](#configuration)
-- [Pricing](#pricing)
-- [Roadmap](#roadmap)
-- [License](#license)
+## Install and quickstart
 
-<h2 id="why-this-exists"><img src="https://api.iconify.design/tabler:bulb.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Why this exists</h2>
-
-A non-dev asks an AI model (Doubao / Yuanbao / DeepSeek / Tongyi / Gemini) to build an app, and gets a folder that *looks* finished — but the user cannot answer three questions about it: **does it run in a clean environment, is it production-ready, and is the license/copyright clean?** Each question is a separate expertise gauntlet (ops, release engineering, legal), and the vibe-coder has none of them. It's not laziness — it's a gauntlet: multi-tool, multi-discipline, and it presupposes exactly the expertise the user lacks.
-
-And the consequence isn't theoretical: Codeberg is already banning vibe-coded projects, citing license ambiguity. Once a platform removes your work, "is the license clean" stops being optional. VibeGate compresses that gauntlet into one local command that emits a bilingual red/yellow/green verdict — readable without a developer in the room.
-
-> **Not another scanner.** license-checker emits a license list, npm audit emits CVEs, `node .` emits a crash stack — each emits a raw list, none emits a verdict. The verdict IS the product; scanners are just inputs.
-
-| Axis | Manual stack (license-checker + npm audit + node .) | VibeGate |
-|---|---|---|
-| One command → verdict | — | ✓ |
-| Non-dev readable | — | ✓ bilingual traffic-light |
-| Clean-env run | partial (you build the sandbox) | ✓ temp sandbox + 30s timeout |
-| License / copyright | partial (must read SPDX) | ✓ auto copyleft grading |
-| Enterprise-grade audit | ✓ (FOSSA / Snyk are stronger) | — (just a 60s yes/no) |
-
-<h2 id="install--quickstart"><img src="https://api.iconify.design/tabler:rocket.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Install & Quickstart</h2>
-
-Once published, end users run one command (no account, no dev background):
+Use the runtime version declared in the repository manifest. The source installation below makes the included example reproducible.
 
 ```bash
-npx vibegate@latest ./my-app
+git clone https://github.com/SuperMarioYL/vibegate.git
+cd vibegate
+npm ci
+npm run build
 ```
 
-Right now (before the v0.1.0 release) you can see the verdict in 3 commands from source:
+Node.js 20+; the demo creates its own complete app without dependencies, so the two startup checks need no registry access.
 
 ```bash
-git clone https://github.com/SuperMarioYL/vibegate && cd vibegate
-npm install && npm test
-npx tsx src/cli.ts ./examples/sloppy-mini-program
+node examples/presentation-demo.mjs
 ```
 
-<details>
-<summary>Sample output (sloppy-mini-program → RED)</summary>
+## Recorded demo
 
+<picture>
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="./assets/presentation/process-mobile-dark.svg">
+  <source media="(max-width: 600px)" srcset="./assets/presentation/process-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/presentation/process-dark.svg">
+  <img src="./assets/presentation/process-light.svg" width="960" alt="Process diagram">
+</picture>
+
+The fixture moves from red to green after adding its README and correcting the startup exit status.
+
+```text
+{
+  "stage": "before",
+  "verdict": "red",
+  "checks": [
+    {
+      "id": "readiness",
+      "status": "fail",
+      "codes": [
+        "no-readme"
+      ]
+    },
+    {
+      "id": "license",
+      "status": "pass",
+      "codes": []
+    },
+    {
+      "id": "clean-run",
+      "status": "fail",
+      "codes": [
+        "crash"
+      ]
+    }
+  ]
+}
+{
+  "stage": "after",
+  "verdict": "green",
+  "checks": [
+    {
+      "id": "readiness",
+      "status": "pass",
+      "codes": []
+    },
+    {
+      "id": "license",
+      "status": "pass",
+      "codes": []
+    },
+    {
+      "id": "clean-run",
+      "status": "pass",
+      "codes": []
+    }
+  ]
+}
 ```
-════════════════════════════════════════════════════════
-  VibeGate local readiness verdict  examples/sloppy-mini-program
-════════════════════════════════════════════════════════
-  ● RED · do not ship as-is
-  ✗ Readiness check
-      ✗ no README (a non-dev cannot tell what this is or how to run it)
-      ⚠ no lockfile (deps are unpinned — clean env may install differently)
-      ✗ node_modules/ is committed (huge, and likely to leak local secrets)
-      ⚠ no .gitignore (node_modules/ and secret files are easily committed)
-      ⚠ package.json has no license field declared
-      ✗ hardcoded secret / credential  (app.js:20  AKID…34)
-      ⚠ console.log left in a production path  (app.js:24)
-  ✗ License / copyright
-      ⚠ source carries a third-party copyright header  (app.js:5)
-      ✗ dep somepkg@1.0.0 is GPL-3.0-only (strong copyleft)
-  ✗ Clean-env run
-      ✗ start crashed in the clean env  (exit 1 — MY_CONFIG_TOKEN env var is required)
-════════════════════════════════════════════════════════
-  Top fixes (how to fix)
-   1. ✗ no README
-   2. ✗ node_modules/ is committed
-   3. ✗ hardcoded secret / credential
-════════════════════════════════════════════════════════
-─ VibeGate 本地体检结果 ─  (zh block above)
-```
 
-</details>
+The complete command and output are recorded in [docs/demo-results.json](./docs/demo-results.json). Inputs and reproduction code are included in the repository.
 
-<h2 id="usage"><img src="https://api.iconify.design/tabler:terminal-2.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Usage</h2>
+![Existing terminal recording](./assets/demo.gif)
+
+The existing recording is retained for context; the text example above documents the reproducible scenario.
+
+## Usage
+
+Run these commands from the repository root after installation. Replace paths for your own data.
 
 ```bash
-vibegate scan ./my-app            # static check only: readiness + license/copyright
-vibegate run  ./my-app            # clean-env run only
-vibegate      ./my-app            # one command: scan + run (the experience path)
-vibegate run  ./my-app -t 10000   # 10s timeout
-vibegate scan ./my-app --no-json  # do not write vibegate-report.json
+node dist/cli.js scan examples/demo-app --no-json
+node dist/cli.js run examples/demo-app --timeout 3000 --no-json
+# Run all checks on a project you trust:
+node dist/cli.js examples/demo-app --timeout 3000
 ```
 
-The verdict is always bilingual (zh primary + en sibling block) printed to stdout, and by default writes a machine-readable `vibegate-report.json` (the future hosted badge just re-renders that JSON). See [docs/verdict-rubric.md](./docs/verdict-rubric.md) for the rubric.
+## Configuration
 
-Drop a `.vibegate.yml` at the repo root to override defaults; try the two sample projects `examples/sloppy-mini-program/` and `examples/demo-app/`.
-
-<h2 id="demo"><img src="https://api.iconify.design/tabler:photo.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Demo</h2>
-
-![demo](assets/demo.gif)
-
-The tape is at [docs/demo.tape](./docs/demo.tape) (vhs drives the real binary; CI re-renders it to `assets/demo.gif`).
-
-<h2 id="configuration"><img src="https://api.iconify.design/tabler:adjustments.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Configuration</h2>
-
-Optional `.vibegate.yml` at the project root:
-
-| key | type | default | meaning |
-|---|---|---|---|
-| `timeoutMs` | number | `30000` | clean-env run timeout in ms |
-| `copyleftAllowlist` | string[] | `[]` | copyleft package names already accepted (skip by name) |
-| `extraSecretPatterns` | string[] | `[]` | extra secret regexes layered on the built-ins |
-| `writeReport` | boolean | `true` | whether to write `vibegate-report.json` |
+.vibegate.yml sets timeoutMs (30000 by default), copyleftAllowlist, extraSecretPatterns and writeReport. --timeout overrides startup timeout; --no-json disables report writing. scan performs static checks; run performs startup only; a bare path performs all three. Reports normally go to the project as vibegate-report.json; a read-only project can cause a home-directory fallback. Tests and common build directories are excluded from static production-source scans.
 
 ```yaml
-# .vibegate.yml
-timeoutMs: 20000
-copyleftAllowlist:
-  - somepkg   # legal already signed off
+timeoutMs: 30000
+copyleftAllowlist: []
+extraSecretPatterns: []
+writeReport: true
 ```
 
-<h2 id="pricing"><img src="https://api.iconify.design/tabler:currency-yen.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Pricing</h2>
+## Integrations and responsibilities
 
-**Hosted verdict badge: ¥29 / report** (or ¥99 / mo unlimited). It re-renders the locally-produced `vibegate-report.json` into a pasteable SVG badge + a private shareable link `vibegate.app/r/<id>`, giving indie founders posting on Xiaohongshu / WeChat a trust signal that's verifiable — a badge beats a screenshot they could fake. The local CLI already emits that JSON; the hosted service only re-renders it. This is real, not vaporware.
+<picture>
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="./assets/presentation/integrations-mobile-dark.svg">
+  <source media="(max-width: 600px)" srcset="./assets/presentation/integrations-mobile-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/presentation/integrations-dark.svg">
+  <img src="./assets/presentation/integrations-light.svg" width="960" alt="Integrations diagram">
+</picture>
 
-The local CLI stays free forever and MIT-licensed — trust is built first, then ¥29 turns trust into a shareable badge. v0.1 focuses on open-source trust; the hosted badge is the v0.2 paid feature (see roadmap).
+Choose the input and output route that matches your workflow. The local example below exercises the stated subset.
 
-<h2 id="roadmap"><img src="https://api.iconify.design/tabler:map-2.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> Roadmap</h2>
+| Route | Implemented role |
+| --- | --- |
+| Node / Bun manifests | Runtime and startup detection |
+| Mini-program markers | Static checks; startup skipped |
+| Installed package metadata | License policy flags |
+| .vibegate.yml | Timeout and scanner settings |
+| JSON + terminal | Bilingual findings and fix hints |
 
-- [x] Static check: readiness heuristics + license/copyright scan + bilingual traffic-light verdict
-- [x] Clean-env run: temp sandbox + fresh install + 30s-timeout crash capture
-- [x] One-command experience: `vibegate ./my-app` combining scan + run
-- [ ] npm publish `vibegate@0.1.0` + record an asciinema demo
-- [ ] v0.2 hosted verdict badge + shareable report link (¥29 / report)
-- [ ] v0.3 cross-runtime support (Python / Go projects)
+## Limits and next steps
 
-<h2 id="license"><img src="https://api.iconify.design/tabler:license.svg?color=%230071E3&width=24" height="22" align="absmiddle" alt=""> License</h2>
+- The temporary directory and reduced environment are not an OS security sandbox. A full run can install dependencies and execute project scripts with host access; inspect unfamiliar projects first.
+- A green report covers only the checks performed, not deployment readiness, legal clearance or absence of vulnerabilities. License labels are configurable review signals.
+- Red/yellow findings do not currently set a failing CLI exit by themselves. Inspect report.verdict for automation. Long-running servers may hit the timeout even when functioning, and mini-program startup is skipped.
 
-MIT — see [LICENSE](./LICENSE). Feedback and PRs welcome at [issues](https://github.com/SuperMarioYL/vibegate/issues).
+Broader runtime acceptance, server-health checks and hosted report sharing are future directions. Preserve the JSON report when investigating a traffic-light result.
 
-<p align="center"><sub><a href="./LICENSE">MIT</a> © 2026 SuperMarioYL</sub></p>
+## License and contributions
+
+See [LICENSE](./LICENSE). When reporting an issue, include a minimal input, the command, and the observed output.

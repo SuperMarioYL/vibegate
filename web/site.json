@@ -1,128 +1,216 @@
 {
-  "schema": 1,
-  "name": "vibegate",
+  "schema": 3,
+  "name": "VibeGate",
   "github": "https://github.com/SuperMarioYL/vibegate",
   "host": "vibegate.lei6393.com",
+  "palette": "auto",
   "lang": {
-    "primary": "zh",
+    "primary": "en",
     "toggle": true
   },
-  "accent": [
-    "#10A37F"
-  ],
+  "meta": {
+    "visual_style": "neon-particle",
+    "demo_source": "docs/demo-results.json",
+    "content_version": "0.8.0"
+  },
   "hero": {
-    "eyebrow": {
-      "zh": "本地 · 无账号 · 一条命令",
-      "en": "Local · no account · one command"
-    },
     "headline": {
-      "zh": "vibe-code 出来的应用能不能用\n一条命令给你红黄绿判定",
-      "en": "Can your vibe-coded app actually run?\nOne command, a traffic-light verdict"
+      "en": "See the next issue to fix before sharing an app.",
+      "zh": "分享应用前，看清下一处要修的问题。"
     },
     "sub": {
-      "zh": "三个纯模块替你跑完三道专业门槛——干净环境能不能跑、算不算生产可用、许可证干不干净；汇总成一个双语判定，不用装 Docker、不用懂技术。",
-      "en": "Three pure modules clear three expertise gauntlets for you — does it run in a clean env, is it production-ready, is the license clean — and roll them into one bilingual verdict. No Docker, no expertise needed."
+      "en": "VibeGate combines a static project check, license-policy findings and a startup run into a bilingual red/yellow/green report with concrete next-step hints.",
+      "zh": "VibeGate 将静态项目检查、许可证策略问题与启动运行汇总为中英双语红黄绿报告，并给出具体修复提示。"
     },
-    "command": "npx vibegate ./my-app",
-    "cta": {
-      "zh": "开始使用",
-      "en": "Get started"
-    },
-    "ctaGithub": {
-      "zh": "在 GitHub 查看",
-      "en": "View on GitHub"
-    }
+    "href": "#quickstart"
   },
   "advantages": [
     {
       "title": {
-        "zh": "干净环境，真跑一次",
-        "en": "A real run, in a clean env"
+        "en": "Separate the checks",
+        "zh": "分项检查"
       },
       "body": {
-        "zh": "把项目复制进临时沙箱、全新装一遍依赖、30 秒超时跑一次启动，真正抓到崩溃还是能跑起来。诊断诚实到层级：装依赖卡住（多半是网络慢）和应用自己启动超时，分开报；小游戏项目也被认出来，不会被误判成“没启动脚本”白扣一盏灯。不是看代码猜，是实跑一次。",
-        "en": "Copies your project into a temp sandbox, installs dependencies fresh, then launches the app under a 30-second timeout to actually catch a crash or a clean start. The diagnosis is honest by layer: a dependency install that hung (usually a slow network) is reported separately from an app whose own start timed out — and mini-game projects are recognized for what they are, not mis-blamed as “no start script” and docked a light they don’t deserve. Not reading code and guessing — a real run."
-      },
-      "chips": [
-        "› 临时沙箱 · 全新装依赖",
-        "› 装依赖 / 启动超时·分开报",
-        "› 小游戏不再被误判"
-      ]
+        "en": "Readiness, license and startup retain their own results.",
+        "zh": "就绪、许可证与启动保留各自结果。"
+      }
     },
     {
       "title": {
-        "zh": "许可证 / 版权，红黄绿一句话",
-        "en": "License & copyright, one traffic light"
+        "en": "Explain the next change",
+        "zh": "解释下一步修改"
       },
       "body": {
-        "zh": "枚举依赖的许可证并自动分级：GPL / AGPL 直接判红、LGPL / MPL 判黄，再嗅探代码里的版权头有没有被抹掉。不用你会读 SPDX 表。",
-        "en": "Enumerates dependency licenses and auto-grades them — GPL / AGPL flag red, LGPL / MPL flag yellow — and sniffs whether copyright headers were stripped from the code. No need to read an SPDX table."
-      },
-      "chips": [
-        "› copyleft 自动分级",
-        "› 版权头嗅探"
-      ]
+        "en": "Findings include bilingual remediation hints.",
+        "zh": "问题带有双语修复提示。"
+      }
     },
     {
       "title": {
-        "zh": "生产可用，先静态扫一遍",
-        "en": "Production-ready, a static sweep first"
+        "en": "Keep a structured report",
+        "zh": "保留结构化报告"
       },
       "body": {
-        "zh": "跑之前先扫就绪信号：缺 README、没锁文件、把 node_modules 真提交进库、没有 .gitignore、硬编码密钥、生产路径残留 console.log——这些一看就是还没法上线的痕迹。判断更诚实：本地装着但已 gitignore 的 node_modules 只提醒不判红，测试里的 console.log 不再误报，连大写变量名的密钥也抓得到。",
-        "en": "Before running, sweep for readiness signals: missing README, no lockfile, node_modules genuinely committed, no .gitignore, hardcoded secrets, console.log left in production paths — the tell-tale signs it isn't shippable yet. The verdict is honest: a locally-installed but gitignored node_modules only warns (no false red), console.log in test files is ignored, and even uppercase or mixed-case key names get caught."
+        "en": "JSON exposes the same checks as the terminal view.",
+        "zh": "JSON 与终端视图暴露同一检查结果。"
+      }
+    }
+  ],
+  "demo": {
+    "title": {
+      "en": "Run it on a complete example",
+      "zh": "运行完整示例"
+    },
+    "note": {
+      "en": "Node.js 20+; the demo creates its own complete app without dependencies, so the two startup checks need no registry access.",
+      "zh": "需要 Node.js 20+；示例创建自身完整无依赖应用，两次启动检查均无需访问包仓库。"
+    },
+    "source": "https://github.com/SuperMarioYL/vibegate/blob/main/docs/demo-results.json",
+    "steps": [
+      {
+        "label": "Recorded run",
+        "body": "Three production checks on a complete temporary dependency-free app before/after adding a README and correcting its startup exit. Child code only exits with a fixed status.",
+        "command": "node examples/presentation-demo.mjs",
+        "output": "{\n  \"stage\": \"before\",\n  \"verdict\": \"red\",\n  \"checks\": [\n    {\n      \"id\": \"readiness\",\n      \"status\": \"fail\",\n      \"codes\": [\n        \"no-readme\"\n      ]\n    },\n    {\n      \"id\": \"license\",\n      \"status\": \"pass\",\n      \"codes\": []\n    },\n    {\n      \"id\": \"clean-run\",\n      \"status\": \"fail\",\n      \"codes\": [\n        \"crash\"\n      ]\n    }\n  ]\n}\n{\n  \"stage\": \"after\",\n  \"verdict\": \"green\",\n  \"checks\": [\n    {\n      \"id\": \"readiness\",\n      \"status\": \"pass\",\n      \"codes\": []\n    },\n    {\n      \"id\": \"license\",\n      \"status\": \"pass\",\n      \"codes\": []\n    },\n    {\n      \"id\": \"clean-run\",\n      \"status\": \"pass\",\n      \"codes\": []\n    }\n  ]\n}",
+        "image": "/assets/presentation/demo-0-light.svg",
+        "imageDark": "/assets/presentation/demo-0-dark.svg"
+      }
+    ]
+  },
+  "quickstart": {
+    "title": {
+      "en": "Try it locally",
+      "zh": "本地上手"
+    },
+    "body": {
+      "en": "Node.js 20+; the demo creates its own complete app without dependencies, so the two startup checks need no registry access.",
+      "zh": "需要 Node.js 20+；示例创建自身完整无依赖应用，两次启动检查均无需访问包仓库。"
+    },
+    "steps": [
+      {
+        "title": {
+          "en": "Install from source",
+          "zh": "从源码安装"
+        },
+        "code": "git clone https://github.com/SuperMarioYL/vibegate.git\ncd vibegate\nnpm ci\nnpm run build"
       },
-      "chips": [
-        "› 就绪启发式扫描",
-        "› 密钥 / 调试残留",
-        "› 误报更少 · 不漏报"
-      ]
+      {
+        "title": {
+          "en": "Run the included example",
+          "zh": "运行随仓示例"
+        },
+        "code": "node examples/presentation-demo.mjs"
+      }
+    ]
+  },
+  "limitations": [
+    {
+      "en": "The temporary directory and reduced environment are not an OS security sandbox. A full run can install dependencies and execute project scripts with host access; inspect unfamiliar projects first.",
+      "zh": "临时目录与精简环境不是操作系统安全沙箱。完整运行可能安装依赖并执行具有主机访问权限的项目脚本；先检查不熟悉的项目。"
     },
     {
-      "title": {
-        "zh": "非开发者读得懂 · 不用账号",
-        "en": "A non-dev can read it · no account"
-      },
-      "body": {
-        "zh": "三个模块汇成一个双语红黄绿判定，既是终端里一眼看懂的结论，也是机器可读的 JSON 报告。本地跑完，无云、无账号、无守护进程。",
-        "en": "The three modules roll into one bilingual traffic-light verdict — both a one-glance terminal conclusion and a machine-readable JSON report. Runs locally: no cloud, no account, no daemon."
-      },
-      "chips": [
-        "› 双语红黄绿判定",
-        "› 本地 · 无云"
-      ]
+      "en": "A green report covers only the checks performed, not deployment readiness, legal clearance or absence of vulnerabilities. License labels are configurable review signals.",
+      "zh": "绿灯只覆盖已运行的检查，不代表部署就绪、法律许可或无漏洞。许可证标签是可配置的审阅信号。"
+    },
+    {
+      "en": "Red/yellow findings do not currently set a failing CLI exit by themselves. Inspect report.verdict for automation. Long-running servers may hit the timeout even when functioning, and mini-program startup is skipped.",
+      "zh": "红/黄问题本身目前不会让 CLI 非零退出；自动化应检查 report.verdict。长运行服务即使正常也可能超时，小程序启动会跳过。"
     }
   ],
   "scene": {
-    "kind": "hub-nodes",
-    "nodes": [
-      "Clean run",
-      "Readiness",
-      "License"
+    "kind": "neon-graph",
+    "fallback": "/assets/presentation/scene-dark.svg",
+    "fallbackLight": "/assets/presentation/scene-light.svg"
+  },
+  "story": {
+    "intro": {
+      "title": {
+        "en": "A concrete task",
+        "zh": "从实际任务出发"
+      },
+      "body": {
+        "en": "A project may run in a developer’s shell while missing a README, relying on local configuration or failing a fresh start. Separate checks show which of those conditions needs attention.",
+        "zh": "项目在开发者 Shell 中能跑，也可能缺 README、依赖本地配置或无法重新启动。分项检查能指出究竟是哪类条件需要处理。"
+      }
+    },
+    "sections": [
+      {
+        "title": {
+          "en": "Follow the operation",
+          "zh": "处理过程"
+        },
+        "body": {
+          "en": "The CLI detects runtime markers and loads .vibegate.yml. Readiness and license scanners collect findings. The startup path copies the project to a temporary directory, installs dependencies when present and runs its start command with a reduced environment and timeout. The report takes the worst check status.",
+          "zh": "CLI 识别运行时标记并加载 .vibegate.yml；readiness 与 license 扫描器收集问题。启动路径把项目复制到临时目录，有依赖时安装，再用精简环境和超时运行 start 命令；报告取最严重的检查状态。"
+        },
+        "image": {
+          "light": "/assets/presentation/process-light.svg",
+          "dark": "/assets/presentation/process-dark.svg",
+          "alt": {
+            "en": "Follow the operation",
+            "zh": "处理过程"
+          }
+        }
+      },
+      {
+        "title": {
+          "en": "Inside VibeGate",
+          "zh": "VibeGate 的内部流程"
+        },
+        "body": {
+          "en": "The CLI detects runtime markers and loads .vibegate.yml. Readiness and license scanners collect findings. The startup path copies the project to a temporary directory, installs dependencies when present and runs its start command with a reduced environment and timeout. The report takes the worst check status.",
+          "zh": "CLI 识别运行时标记并加载 .vibegate.yml；readiness 与 license 扫描器收集问题。启动路径把项目复制到临时目录，有依赖时安装，再用精简环境和超时运行 start 命令；报告取最严重的检查状态。"
+        },
+        "image": {
+          "light": "/assets/presentation/architecture-light.svg",
+          "dark": "/assets/presentation/architecture-dark.svg",
+          "alt": {
+            "en": "Inside VibeGate",
+            "zh": "VibeGate 的内部流程"
+          }
+        }
+      },
+      {
+        "title": {
+          "en": "Connect the pieces",
+          "zh": "输入与输出"
+        },
+        "body": {
+          "en": "Choose the input and output route that matches your workflow. The local example below exercises the stated subset.",
+          "zh": "根据工作流选择输入与输出路径。本文本地示例验证其中明确说明的子流程。"
+        },
+        "image": {
+          "light": "/assets/presentation/integrations-light.svg",
+          "dark": "/assets/presentation/integrations-dark.svg",
+          "alt": {
+            "en": "Connect the pieces",
+            "zh": "输入与输出"
+          }
+        }
+      }
+    ],
+    "details": [
+      {
+        "title": {
+          "en": "Configuration",
+          "zh": "配置"
+        },
+        "body": {
+          "en": ".vibegate.yml sets timeoutMs (30000 by default), copyleftAllowlist, extraSecretPatterns and writeReport. --timeout overrides startup timeout; --no-json disables report writing. scan performs static checks; run performs startup only; a bare path performs all three. Reports normally go to the project as vibegate-report.json; a read-only project can cause a home-directory fallback. Tests and common build directories are excluded from static production-source scans.",
+          "zh": " .vibegate.yml 可配置 timeoutMs（默认 30000）、copyleftAllowlist、extraSecretPatterns、writeReport。--timeout 覆盖启动超时，--no-json 禁止写报告。scan 只做静态检查，run 只做启动，直接传路径则运行三项。报告通常写到项目 vibegate-report.json，项目只读时可能回退到用户目录。静态生产源码扫描排除测试与常见构建目录。"
+        }
+      },
+      {
+        "title": {
+          "en": "Further use",
+          "zh": "进一步使用"
+        },
+        "body": {
+          "en": "Run these commands from the repository root after installation. Replace paths for your own data.",
+          "zh": "安装后在仓库根目录运行以下命令；处理自己的数据时替换相应路径。"
+        },
+        "code": "node dist/cli.js scan examples/demo-app --no-json\nnode dist/cli.js run examples/demo-app --timeout 3000 --no-json\n# Run all checks on a project you trust:\nnode dist/cli.js examples/demo-app --timeout 3000"
+      }
     ]
-  },
-  "cta": {
-    "headline": {
-      "zh": "三道专业门槛，压成一条本地命令",
-      "en": "Three expertise gauntlets, one local command"
-    },
-    "sub": {
-      "zh": "开源、MIT。本地判定这一核心动作，永不设墙；托管徽章是可选的后续。",
-      "en": "Open source, MIT. The core act of a local verdict is never gated; a hosted badge is an optional later step."
-    },
-    "button": {
-      "zh": "在 GitHub 查看",
-      "en": "View on GitHub"
-    }
-  },
-  "footer": {
-    "tag": {
-      "zh": "给 vibe-code 出来的应用放行的本地闸门",
-      "en": "The local gate that ships vibe-coded apps"
-    }
-  },
-  "meta": {
-    "content_version": "0.8.0",
-    "generated_at": "2026-08-19"
   }
 }

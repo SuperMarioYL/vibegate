@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "source_revision": "8d82fcf9a09598c556f2932e50a87700be93d19b",
+  "scope": "Three production checks on a complete temporary dependency-free app before/after adding a README and correcting its startup exit. Child code only exits with a fixed status.",
+  "steps": [
+    {
+      "label": "Recorded run",
+      "body": "Three production checks on a complete temporary dependency-free app before/after adding a README and correcting its startup exit. Child code only exits with a fixed status.",
+      "command": "node examples/presentation-demo.mjs",
+      "output": "{\n  \"stage\": \"before\",\n  \"verdict\": \"red\",\n  \"checks\": [\n    {\n      \"id\": \"readiness\",\n      \"status\": \"fail\",\n      \"codes\": [\n        \"no-readme\"\n      ]\n    },\n    {\n      \"id\": \"license\",\n      \"status\": \"pass\",\n      \"codes\": []\n    },\n    {\n      \"id\": \"clean-run\",\n      \"status\": \"fail\",\n      \"codes\": [\n        \"crash\"\n      ]\n    }\n  ]\n}\n{\n  \"stage\": \"after\",\n  \"verdict\": \"green\",\n  \"checks\": [\n    {\n      \"id\": \"readiness\",\n      \"status\": \"pass\",\n      \"codes\": []\n    },\n    {\n      \"id\": \"license\",\n      \"status\": \"pass\",\n      \"codes\": []\n    },\n    {\n      \"id\": \"clean-run\",\n      \"status\": \"pass\",\n      \"codes\": []\n    }\n  ]\n}"
+    }
+  ]
+}

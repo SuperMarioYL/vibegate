@@ -1,0 +1,82 @@
+{
+  "name": "VibeGate",
+  "tagline": "See the next issue to fix before sharing an app.",
+  "architecture": {
+    "title": "Inside VibeGate",
+    "nodes": [
+      {
+        "title": "Project + config",
+        "detail": "src/config.ts"
+      },
+      {
+        "title": "Static checks",
+        "detail": "src/scan"
+      },
+      {
+        "title": "Temporary startup",
+        "detail": "src/run/sandbox.ts"
+      },
+      {
+        "title": "Bilingual verdict",
+        "detail": "src/report"
+      }
+    ],
+    "edges": [
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        2,
+        3
+      ]
+    ]
+  },
+  "process": {
+    "title": "From input to a useful result",
+    "steps": [
+      {
+        "title": "Check incomplete app",
+        "detail": "Missing README; exit 1"
+      },
+      {
+        "title": "Fix two inputs",
+        "detail": "Add README; exit 0"
+      },
+      {
+        "title": "Repeat all checks",
+        "detail": "Readiness, license and startup"
+      }
+    ],
+    "result": "The fixture moves from red to green after adding its README and correcting the startup exit status."
+  },
+  "integrations": {
+    "title": "Supported input and output routes",
+    "items": [
+      {
+        "title": "Node / Bun manifests",
+        "detail": "Runtime and startup detection"
+      },
+      {
+        "title": "Mini-program markers",
+        "detail": "Static checks; startup skipped"
+      },
+      {
+        "title": "Installed package metadata",
+        "detail": "License policy flags"
+      },
+      {
+        "title": ".vibegate.yml",
+        "detail": "Timeout and scanner settings"
+      },
+      {
+        "title": "JSON + terminal",
+        "detail": "Bilingual findings and fix hints"
+      }
+    ]
+  }
+}

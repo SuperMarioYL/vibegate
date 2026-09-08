@@ -1,7 +1,7 @@
 {
   "name": "vibegate",
   "version": "0.8.0",
-  "description": "VibeGate is the local readiness gate that green-lights vibe-coded apps for non-dev shippers \u2014 one command, bilingual traffic-light verdict on clean-env run + readiness + license.",
+  "description": "Combine project-readiness heuristics, dependency-license flags and a temporary-directory startup check into a bilingual report.",
   "type": "module",
   "main": "dist/cli.js",
   "bin": {

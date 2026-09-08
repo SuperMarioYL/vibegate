@@ -1,0 +1,38 @@
+{
+  "mode": "auto",
+  "id": "8456e6-d46ae7-acb0f6-ed9e3ac3efdb",
+  "identity": "https://github.com/supermarioyl/vibegate",
+  "primary": "#8456e6",
+  "secondary": "#d46ae7",
+  "highlight": "#acb0f6",
+  "dark": {
+    "bg": "#070712",
+    "panel": "#0e101f",
+    "code": "#0d0d1d",
+    "ink": "#eeeffd",
+    "muted": "#9e9cc4",
+    "line": "#221841",
+    "primary": "#8c62e8",
+    "secondary": "#d46ae7",
+    "highlight": "#acb0f6",
+    "accent": "#8c62e8",
+    "buttonStart": "#8456e6",
+    "buttonEnd": "#a954b8",
+    "buttonText": "#ffffff"
+  },
+  "light": {
+    "bg": "#fbf9fe",
+    "panel": "#f9f7fe",
+    "code": "#f6f3fd",
+    "ink": "#191630",
+    "muted": "#5e5e88",
+    "line": "#dacbf7",
+    "primary": "#8054df",
+    "secondary": "#a050ae",
+    "highlight": "#6a6d98",
+    "accent": "#8054df",
+    "buttonStart": "#8456e6",
+    "buttonEnd": "#a954b8",
+    "buttonText": "#ffffff"
+  }
+}
