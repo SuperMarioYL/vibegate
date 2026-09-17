@@ -4,6 +4,33 @@ All notable changes to VibeGate are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/), and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] - 2026-09-18
+
+The gate can actually gate: a RED verdict now exits non-zero, the spinner no
+longer sprays ANSI frames into piped/CI stderr, and version surfaces are
+lockstep-pinned.
+
+### Added
+
+- **`feature-exit-code-contract`** — a RED verdict (any fail-severity finding)
+  now exits `2`; `0` = green/yellow, `1` = operational error (unchanged).
+  v0.8.0 exited `0` on RED (reproduced on `examples/sloppy-mini-program`), so
+  a CI step using vibegate passed on exactly the projects the tool said not to
+  ship. The contract is documented in both READMEs and covered by
+  `tests/exitcode.test.ts`, which drives the real CLI via subprocess.
+
+### Fixed
+
+- **`fix-spinner-non-tty-noise`** — the progress spinner only animates when
+  stderr is a TTY. Piped/CI stderr previously collected ~12 escape-coded
+  partial lines per second for the whole run.
+
+### Quality
+
+- **`quality-version-lockstep-test`** — `tests/version-lockstep.test.ts` pins
+  `VERSION`, `package.json` and `web/site.json` to the same version so no
+  future bump can land half-done.
+
 ## [0.8.0] - 2026-09-02
 
 ### Fixed

@@ -39,6 +39,9 @@ class Spinner {
   private i = 0;
   constructor(private msg: string) {}
   start(): void {
+    // Only animate on a real terminal — piped/CI stderr would otherwise
+    // collect ~12 escape-coded partial lines per second for the whole run.
+    if (!process.stderr.isTTY) return;
     this.timer = setInterval(() => {
       process.stderr.write(`\r\x1b[36m${SPINNER_FRAMES[this.i++ % SPINNER_FRAMES.length]}\x1b[0m ${this.msg}`);
     }, 80);
@@ -115,6 +118,12 @@ async function emit(projectPath: string, cfg: VibeGateConfig, which: Which): Pro
     const out = await writeReport(report, cfg);
     if (out && cfg.writeReport) {
       consola.info(`报告已写入 ${out}`);
+    }
+    // Exit-code contract (a gate that cannot gate is a printer): 0 = GREEN or
+    // YELLOW verdict, 2 = RED verdict (at least one fail-severity finding),
+    // 1 = operational error (kept above). CI steps gate on this.
+    if (report.verdict === 'red') {
+      process.exitCode = 2;
     }
   } catch (e) {
     consola.error(`VibeGate 运行失败: ${(e as Error).message}`);

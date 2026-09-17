@@ -1,6 +1,6 @@
 {
   "name": "vibegate",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Combine project-readiness heuristics, dependency-license flags and a temporary-directory startup check into a bilingual report.",
   "type": "module",
   "main": "dist/cli.js",
@@ -18,7 +18,7 @@
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsx src/cli.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "node --import tsx --test tests/scan.test.ts tests/run.test.ts tests/config.test.ts",
+    "test": "node --import tsx --test tests/scan.test.ts tests/run.test.ts tests/config.test.ts tests/exitcode.test.ts tests/version-lockstep.test.ts",
     "prepublishOnly": "tsc -p tsconfig.build.json && chmod +x dist/cli.js",
     "demo:render": "vhs docs/demo.tape"
   },

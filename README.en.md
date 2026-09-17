@@ -13,6 +13,8 @@
 
 VibeGate combines a static project check, license-policy findings and a startup run into a bilingual red/yellow/green report with concrete next-step hints.
 
+**Exit-code contract (for CI gating):** `0` = green/yellow verdict; `2` = red verdict (fail-severity findings present — do not ship); `1` = operational error (missing path, internal failure).
+
 ## Why use it
 
 A project may run in a developer’s shell while missing a README, relying on local configuration or failing a fresh start. Separate checks show which of those conditions needs attention.
