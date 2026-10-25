@@ -11,7 +11,7 @@
   "meta": {
     "visual_style": "neon-particle",
     "demo_source": "docs/demo-results.json",
-    "content_version": "0.9.0"
+    "content_version": "0.10.0"
   },
   "hero": {
     "headline": {
@@ -113,8 +113,8 @@
       "zh": "绿灯只覆盖已运行的检查，不代表部署就绪、法律许可或无漏洞。许可证标签是可配置的审阅信号。"
     },
     {
-      "en": "Red/yellow findings do not currently set a failing CLI exit by themselves. Inspect report.verdict for automation. Long-running servers may hit the timeout even when functioning, and mini-program startup is skipped.",
-      "zh": "红/黄问题本身目前不会让 CLI 非零退出；自动化应检查 report.verdict。长运行服务即使正常也可能超时，小程序启动会跳过。"
+      "en": "A red verdict exits 2 and a yellow verdict exits 0, so gate CI on the exit code (or inspect report.verdict). Long-running servers may hit the timeout even when functioning, and mini-program startup is skipped.",
+      "zh": "红判定退出码为 2、黄判定为 0，CI 可直接按退出码拦截（或检查 report.verdict）；长运行服务即使正常也可能超时，小程序启动会跳过。"
     }
   ],
   "scene": {

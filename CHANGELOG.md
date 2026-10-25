@@ -4,6 +4,39 @@ All notable changes to VibeGate are documented here. The format is loosely
 based on [Keep a Changelog](https://keepachangelog.com/), and this project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.10.0] - 2026-10-26
+
+Fix-led hardening of the v0.9.0 gate contract: the invocation path can no
+longer report success without checking anything, the docs no longer contradict
+the exit-code contract, releases always carry downloadable assets, and the
+lockstep guard covers the version a user actually reads.
+
+### Fixed
+
+- **`fix-bare-invocation-exit-zero`** — `vibegate` with no usable path printed
+  help to stdout and exited `0`. Because `0` is the documented "GREEN/YELLOW
+  verdict" code, `vibegate "$UNSET_VAR"` in CI passed while gating nothing. It
+  now writes usage to stderr and exits `1` (the contract's operational-error
+  code for a missing path).
+- **`fix-docs-stale-exit-contract`** — both READMEs and `web/site.json`
+  (published on the live site) still claimed "red/yellow findings do not set a
+  failing CLI exit", contradicting the v0.9.0 contract documented in the same
+  README. The copy now states the shipped behavior: RED exits `2`, YELLOW
+  exits `0`.
+- **`fix-release-assets-never-attached`** — `.github/workflows/release.yml`
+  staged `dist/` but only called `actions/upload-artifact` (expiring Actions
+  storage, not linked from the release page) and never `gh release upload`, so
+  tags published from a clean tree shipped `0` assets (`v0.9.0` and `v0.7.0`
+  have none; `v0.6.0`/`v0.8.0` carried 21). The build job now declares
+  `contents: write` and attaches `dist/*` to the release.
+
+### Quality
+
+- **`quality-version-lockstep-cli-surface`** — `tests/version-lockstep.test.ts`
+  now also drives the real CLI and asserts its `--version` output equals
+  `VERSION`, pinning the `readVersion` fallback that previously could report a
+  stale `0.1.0` while every file surface read the new version.
+
 ## [0.9.0] - 2026-09-18
 
 The gate can actually gate: a RED verdict now exits non-zero, the spinner no

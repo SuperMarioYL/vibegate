@@ -169,7 +169,7 @@ Choose the input and output route that matches your workflow. The local example 
 
 - The temporary directory and reduced environment are not an OS security sandbox. A full run can install dependencies and execute project scripts with host access; inspect unfamiliar projects first.
 - A green report covers only the checks performed, not deployment readiness, legal clearance or absence of vulnerabilities. License labels are configurable review signals.
-- Red/yellow findings do not currently set a failing CLI exit by themselves. Inspect report.verdict for automation. Long-running servers may hit the timeout even when functioning, and mini-program startup is skipped.
+- A red verdict exits 2 and a yellow verdict exits 0, so gate CI on the exit code (or inspect report.verdict). Long-running servers may hit the timeout even when functioning, and mini-program startup is skipped.
 
 Broader runtime acceptance, server-health checks and hosted report sharing are future directions. Preserve the JSON report when investigating a traffic-light result.
 

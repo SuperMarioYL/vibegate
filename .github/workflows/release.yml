@@ -8,6 +8,11 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # contents: write — the final step attaches the staged artifacts to the
+    # tag's GitHub release (upload-artifact alone only fills the Actions
+    # artifact store, which expires and is not linked from the release page).
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,6 +33,18 @@ jobs:
           name: dist
           path: dist/*
           if-no-files-found: error
+      - name: Attach dist artifacts to the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # publish_repo.sh only uploads a LOCAL dist/, and a clean checkout has
+          # none, so it relies on this workflow to attach the assets
+          # ("release.yml will attach them on the tagged CI run"). Without this
+          # step a tag published from a clean tree ships 0 downloadable assets.
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+          fi
+          gh release upload "$GITHUB_REF_NAME" --clobber dist/*
 
   # Opt-in npm publish — a fresh repo has no NPM_TOKEN and no Trusted Publisher,
   # so this job stays skipped until the owner sets the NPM_PUBLISH repo variable.

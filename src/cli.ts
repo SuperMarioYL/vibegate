@@ -149,7 +149,12 @@ program
   .allowExcessArguments(false)
   .action(async (path: string | undefined, opts: CommonOpts) => {
     if (!path || path.startsWith('-')) {
-      program.help();
+      // No usable path is a usage error, not a verdict: exit 0 is reserved for
+      // a GREEN/YELLOW verdict (see emit), so printing help to stdout with
+      // exit 0 made `vibegate "$UNSET_VAR"` a silent CI pass. help({error:true})
+      // writes the usage text to stderr and exits 1 (the operational-error code
+      // the contract already assigns to a missing path).
+      program.help({ error: true });
       return;
     }
     const resolved = resolve(path);
